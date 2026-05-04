@@ -492,6 +492,7 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
   <div class="modal">
     <div class="modal-title">Registrar retiro de socios</div>
     <div class="form-group"><label>Fecha</label><input type="date" id="rFecha"></div>
+    <div id="retiroNetoInfo"></div>
     <div id="retiroSociosInputs"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost btn-sm" onclick="cerrar('ovRetiro')">Cancelar</button>
@@ -1042,12 +1043,37 @@ window.borrarGasto=async function(id,mk){try{await deleteDoc(doc(db,'gastos',id)
 
 // ── SOCIOS ────────────────────────────────────
 window.abrirRetiro=function(){
-  document.getElementById('rFecha').value=hoy();
+  var hoyStr=hoy();
+  document.getElementById('rFecha').value=hoyStr;
   var socios=Object.entries(D.socios||{});
   if(!socios.length){toast('Primero configurá los socios en Config','err');return;}
-  document.getElementById('retiroSociosInputs').innerHTML=socios.map(function(e){
-    return '<div class="form-group"><label>'+esc(e[1].nombre)+'</label><input type="number" id="retiro_'+e[0]+'" placeholder="0"></div>';
-  }).join('');
+
+  // Calcular neto del día seleccionado
+  function calcSugerido(fecha){
+    var mk=mkMes(fecha);
+    var cajaDia=(D.caja[mk]||[]).filter(function(d){return d.fecha===fecha;});
+    var netoHoy=cajaDia.reduce(function(s,d){return s+d.total;},0);
+    return netoHoy;
+  }
+
+  function renderInputs(fecha){
+    var neto=calcSugerido(fecha);
+    document.getElementById('retiroNetoInfo').innerHTML=neto>0
+      ?'<div style="background:rgba(0,230,118,0.07);border:1px solid rgba(0,230,118,0.2);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--gris-texto)">Neto del día: <strong style="color:var(--verde)">'+fmt(neto)+'</strong> — montos sugeridos por porcentaje</div>'
+      :'<div style="background:rgba(255,214,0,0.07);border:1px solid rgba(255,214,0,0.2);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--amarillo)">Sin caja registrada para esa fecha — ingresá los montos manualmente</div>';
+    document.getElementById('retiroSociosInputs').innerHTML=socios.map(function(e){
+      var s=e[1];
+      var sugerido=neto>0?Math.round(neto*(s.pct||0)/100):0;
+      return '<div class="form-group">'
+        +'<label>'+esc(s.nombre)+' <span style="color:var(--gris-texto);font-size:10px;text-transform:none">('+s.pct+'% · sugerido: '+fmt(sugerido)+')</span></label>'
+        +'<input type="number" id="retiro_'+e[0]+'" value="'+(sugerido||'')+'" placeholder="'+sugerido+'">'
+        +'</div>';
+    }).join('');
+  }
+
+  // Agregar listener al campo fecha
+  document.getElementById('rFecha').onchange=function(){renderInputs(this.value);};
+  renderInputs(hoyStr);
   abrir('ovRetiro');
 };
 window.guardarRetiro=async function(){
@@ -1070,34 +1096,49 @@ function pintarSocios(){
   var caja=D.caja[mk]||[],gastos=D.gastos[mk]||[];
   var totalBruto=caja.reduce(function(s,d){return s+d.total;},0);
   var totalGastos=gastos.reduce(function(s,d){return s+d.monto;},0);
-  var totalRet=retiros.reduce(function(s,d){return s+Object.values(d.montos||{}).reduce(function(s2,m){return s2+m.monto;},0);},0);
-  var saldoNeto=totalBruto-totalGastos-totalRet;
+  var totalRetTodos=retiros.reduce(function(s,d){return s+Object.values(d.montos||{}).reduce(function(s2,m){return s2+m.monto;},0);},0);
+  var saldoNeto=totalBruto-totalGastos-totalRetTodos;
 
   if(!socios.length){document.getElementById('gridSocios').innerHTML='<div class="card"><div class="empty"><div class="empty-icon">👥</div>Configurá los socios en ⚙️ Config</div></div>';return;}
-  var html='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-bottom:20px">';
+
+  // Tabla de retiros del mes (todos los socios juntos)
+  var tablaRetiros='';
+  if(retiros.length){
+    tablaRetiros='<div class="card" style="margin-bottom:20px"><div class="card-title">📅 Retiros del mes</div>'
+      +'<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Fecha</th>'
+      +socios.map(function(e){return '<th>'+esc(e[1].nombre)+'</th>';}).join('')
+      +'<th>Total día</th></tr></thead><tbody>'
+      +retiros.map(function(r){
+        var totalDia=Object.values(r.montos||{}).reduce(function(s,m){return s+m.monto;},0);
+        return '<tr><td class="mono">'+fmtF(r.fecha)+'</td>'
+          +socios.map(function(e){var m=r.montos&&r.montos[e[0]]?r.montos[e[0]].monto:0;return '<td class="mono '+(m?'c-azul':'')+'">'+(m?fmt(m):'—')+'</td>';}).join('')
+          +'<td class="mono c-verde" style="font-weight:600">'+fmt(totalDia)+'</td></tr>';
+      }).join('')
+      +'</tbody></table></div></div>';
+  }
+
+  // Tarjeta por socio
+  var html='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-bottom:20px">';
   socios.forEach(function(e){
     var id=e[0],s=e[1];
     var base=s.base==='bruto'?totalBruto:saldoNeto;
-    var ganancia=Math.round(base*(s.pct||0)/100);
+    var gananciaEstimada=Math.round(base*(s.pct||0)/100);
     var retirado=retiros.reduce(function(sum,r){return sum+(r.montos&&r.montos[id]?r.montos[id].monto:0);},0);
-    var items=retiros.filter(function(r){return r.montos&&r.montos[id]&&r.montos[id].monto;}).map(function(r){
-      return '<div class="retiro-item"><span class="mono" style="font-size:12px">'+fmtF(r.fecha)+'</span><span class="mono c-azul">'+fmt(r.montos[id].monto)+'</span></div>';
-    }).join('');
+    var pendiente=gananciaEstimada-retirado;
     html+='<div class="card">'
-      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'
       +'<div class="item-avatar">'+s.nombre[0].toUpperCase()+'</div>'
       +'<div><div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800">'+esc(s.nombre)+'</div>'
-      +'<div style="font-size:10px;color:var(--gris-texto);font-family:monospace">'+s.pct+'% sobre '+(s.base==='bruto'?'caja bruta':'saldo neto')+'</div></div></div>'
-      +'<div style="background:rgba(0,230,118,0.06);border-radius:8px;padding:10px;margin-bottom:10px">'
-      +'<div style="font-size:10px;color:var(--gris-texto);font-family:monospace;margin-bottom:4px">GANANCIA ESTIMADA</div>'
-      +'<div style="font-family:Syne,sans-serif;font-size:20px;font-weight:700;color:var(--verde)">'+fmt(ganancia)+'</div></div>'
-      +'<div class="retiro-item"><span>Retirado</span><span class="mono c-azul">'+fmt(retirado)+'</span></div>'
-      +'<div class="retiro-item"><span>Pendiente</span><span class="mono '+(ganancia-retirado>=0?'c-verde':'c-rojo')+'">'+fmt(ganancia-retirado)+'</span></div>'
-      +(items||'<div style="color:var(--gris-texto);font-size:12px;padding:6px 0">Sin retiros este mes</div>')
+      +'<div style="font-size:10px;color:var(--gris-texto);font-family:monospace">'+s.pct+'% · '+(s.base==='bruto'?'caja bruta':'saldo neto')+'</div></div></div>'
+      +'<div style="background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.15);border-radius:8px;padding:10px;margin-bottom:10px">'
+      +'<div style="font-size:10px;color:var(--gris-texto);font-family:monospace;margin-bottom:2px">CORRESPONDE ESTE MES</div>'
+      +'<div style="font-family:Syne,sans-serif;font-size:20px;font-weight:700;color:var(--verde)">'+fmt(gananciaEstimada)+'</div></div>'
+      +'<div class="retiro-item"><span style="font-size:13px">Retirado</span><span class="mono c-azul" style="font-weight:600">'+fmt(retirado)+'</span></div>'
+      +'<div class="retiro-item"><span style="font-size:13px">Pendiente</span><span class="mono" style="font-weight:600;color:'+(pendiente>=0?'var(--verde)':'var(--rojo)')+'">'+fmt(pendiente)+'</span></div>'
       +'</div>';
   });
   html+='</div>';
-  document.getElementById('gridSocios').innerHTML=html;
+  document.getElementById('gridSocios').innerHTML=tablaRetiros+html;
 }
 
 // ── RESUMEN ───────────────────────────────────
