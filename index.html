@@ -441,7 +441,7 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
           </div>
           <div style="display:flex;gap:8px">
             <button class="btn btn-ghost btn-sm" onclick="limpiarCarrito()">🗑️ Limpiar</button>
-            <button class="btn btn-sm" id="btnConfirmarVenta" onclick="confirmarVenta()" style="flex:1">✓ Confirmar venta</button>
+            <button class="btn btn-sm" id="btnConfirmarVenta" data-action="confirmar-venta" style="flex:1">✓ Confirmar venta</button>
           </div>
         </div>
       </div>
@@ -663,6 +663,7 @@ var D={
   cancha:1,semana:0,
   eventuales:{1:{},2:{}},fijos:{1:{},2:{}},ausentes:{1:{},2:{}},asistencias:{1:{},2:{}},
   caja:{},gastos:{},retiros:{},clientes:{},
+  productos:{},ventasBuffet:{},
   config:{nombreComplejo:'Canchas Al Toque',precioTurno:35000,precioGaseosa:0,adminPass:'admin123',mensajeConfirmacion:'Hola {nombre}! Te recordamos tu turno de hoy a las {hora} en Cancha {cancha}. ¿Confirmás tu asistencia?'},
   socios:{},   // {id:{nombre,pct,base}}
   personal:{}, // {id:{nombre,precioPorHora}}
@@ -1753,6 +1754,7 @@ window.confirmarVenta=async function(){
     };
 
     // Descontar stock
+    if(!D.productos) D.productos={};
     items.forEach(function(e){
       if(D.productos[e[0]]){
         D.productos[e[0]].stock=(D.productos[e[0]].stock||0)-e[1].cantidad;
@@ -1761,6 +1763,7 @@ window.confirmarVenta=async function(){
     await setDoc(doc(db,'config','productos'),{data:D.productos});
 
     // Guardar venta
+    if(!D.ventasBuffet) D.ventasBuffet={};
     if(!D.ventasBuffet[hoyStr]) D.ventasBuffet[hoyStr]=[];
     D.ventasBuffet[hoyStr].push(venta);
     await setDoc(doc(db,'buffet',hoyStr),{ventas:D.ventasBuffet[hoyStr]});
@@ -1937,8 +1940,9 @@ function sincSelects(){
 document.addEventListener('click', function(e){
   var el = e.target.closest('[data-action]');
   if(!el) return;
+  e.stopPropagation();
   var a = el.dataset.action;
-  var id = el.dataset.id;
+  var id = el.dataset.id || null;
   if(a==='editar-prod')   window.abrirModalProducto(id);
   if(a==='borrar-prod')   window.borrarProducto(id);
   if(a==='carrito-mas')   window.cambiarCantidadCarrito(id, 1);
@@ -1946,6 +1950,7 @@ document.addEventListener('click', function(e){
   if(a==='anular-venta')  window.anularVenta(el.dataset.fecha, parseInt(el.dataset.idx));
   if(a==='copiar-msg')    window.copiarMensaje(el.dataset.mid);
   if(a==='toggle-asi')    window.toggleAsiHoy(el.dataset.cancha, el.dataset.fecha, el.dataset.hora);
+  if(a==='confirmar-venta') window.confirmarVenta();
 });
 async function cargarTodo(){
   try{
