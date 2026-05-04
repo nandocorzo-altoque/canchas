@@ -685,7 +685,7 @@ function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 function stat(lbl,val,cls){return '<div class="stat"><div class="stat-lbl">'+lbl+'</div><div class="stat-val '+(cls||'')+'">'+val+'</div></div>';}
 function setBusy(id,b){var el=document.getElementById(id);if(el)el.disabled=b;}
 function setSynced(ok){document.getElementById('syncDot').className='sync-dot'+(ok?'':' off');}
-function toast(msg,tipo){var el=document.getElementById('toast');el.textContent=msg;el.className='show '+(tipo||'ok');clearTimeout(el._t);el._t=setTimeout(function(){el.className='';},2800);}
+function toast(msg,tipo){var el=document.getElementById('toast');el.textContent=msg;el.className='show '+(tipo||'ok');clearTimeout(el._t);var delay=tipo==='err'?5000:2800;el._t=setTimeout(function(){el.className='';},delay);}
 function abrir(id){document.getElementById(id).classList.add('open');}
 function cerrar(id){document.getElementById(id).classList.remove('open');}
 window.cerrar=cerrar;
@@ -1722,29 +1722,58 @@ window.limpiarCarrito=limpiarCarrito;
 window.confirmarVenta=async function(){
   var items=Object.entries(carrito);
   if(!items.length){toast('El carrito está vacío','err');return;}
-  // Verificar stock
-  var sinStock=items.filter(function(e){return (D.productos[e[0]]&&D.productos[e[0]].stock||0)<e[1].cantidad;});
-  if(sinStock.length){toast('Sin stock suficiente para: '+sinStock.map(function(e){return e[1].nombre;}).join(', '),'err');return;}
+
+  // Verificar stock (bug fix: operador de precedencia)
+  var sinStock=items.filter(function(e){
+    var prod=D.productos[e[0]];
+    return !prod || (prod.stock||0) < e[1].cantidad;
+  });
+  if(sinStock.length){
+    toast('Sin stock: '+sinStock.map(function(e){return e[1].nombre;}).join(', '),'err');
+    return;
+  }
+
   setBusy('btnConfirmarVenta',true);
-  var metodo=(document.getElementById('ventaMetodoPago')||{}).value||'efectivo';
-  var total=items.reduce(function(s,e){return s+e[1].precio*e[1].cantidad;},0);
-  var ganancia=items.reduce(function(s,e){return s+(e[1].precio-e[1].costo)*e[1].cantidad;},0);
-  var ahora=new Date();
-  var hora=ahora.getHours().toString().padStart(2,'0')+':'+ahora.getMinutes().toString().padStart(2,'0');
-  var hoyStr=hoy();
-  var venta={hora,metodo,total,ganancia,items:items.map(function(e){return {id:e[0],nombre:e[1].nombre,precio:e[1].precio,cantidad:e[1].cantidad};})};
   try{
+    var metodo=document.getElementById('ventaMetodoPago').value||'efectivo';
+    var total=items.reduce(function(s,e){return s+e[1].precio*e[1].cantidad;},0);
+    var ganancia=items.reduce(function(s,e){return s+(e[1].precio-(e[1].costo||0))*e[1].cantidad;},0);
+    var ahora=new Date();
+    var hora=String(ahora.getHours()).padStart(2,'0')+':'+String(ahora.getMinutes()).padStart(2,'0');
+    var hoyStr=hoy();
+
+    var venta={
+      hora: hora,
+      metodo: metodo,
+      total: total,
+      ganancia: ganancia,
+      items: items.map(function(e){
+        return {id:e[0], nombre:e[1].nombre, precio:e[1].precio, cantidad:e[1].cantidad};
+      })
+    };
+
     // Descontar stock
-    items.forEach(function(e){if(D.productos[e[0]])D.productos[e[0]].stock=(D.productos[e[0]].stock||0)-e[1].cantidad;});
+    items.forEach(function(e){
+      if(D.productos[e[0]]){
+        D.productos[e[0]].stock=(D.productos[e[0]].stock||0)-e[1].cantidad;
+      }
+    });
     await setDoc(doc(db,'config','productos'),{data:D.productos});
+
     // Guardar venta
-    if(!D.ventasBuffet[hoyStr])D.ventasBuffet[hoyStr]=[];
+    if(!D.ventasBuffet[hoyStr]) D.ventasBuffet[hoyStr]=[];
     D.ventasBuffet[hoyStr].push(venta);
     await setDoc(doc(db,'buffet',hoyStr),{ventas:D.ventasBuffet[hoyStr]});
+
     carrito={};
-    setSynced(true);toast('Venta registrada ✓');
+    setSynced(true);
+    toast('Venta registrada ✓');
     pintarBuffet();
-  }catch(e){toast('Error: '+e.message,'err');setSynced(false);}
+  } catch(err){
+    toast('Error al guardar: '+err.message,'err');
+    setSynced(false);
+    console.error('confirmarVenta error:', err);
+  }
   setBusy('btnConfirmarVenta',false);
 };
 
