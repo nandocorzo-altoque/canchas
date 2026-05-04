@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canchas Al Toque</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --verde:#00e676; --verde-dark:#00c853;
+  --negro:#0a0a0a; --gris-fondo:#111214;
+  --gris-card:#1a1c1f; --gris-borde:#2a2d32;
+  --gris-texto:#8a8f98; --blanco:#f0f2f5;
+  --rojo:#ff4444; --amarillo:#ffd600;
+  --naranja:#ff9100; --azul:#40c4ff;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--negro);color:var(--blanco);font-family:'DM Sans',sans-serif;min-height:100vh;}
+
+/* LOADING */
+#loading{position:fixed;inset:0;background:var(--negro);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:16px;}
+.spinner{width:36px;height:36px;border:3px solid var(--gris-borde);border-top-color:var(--verde);border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-txt{font-family:'DM Mono',monospace;font-size:13px;color:var(--gris-texto);}
+
+/* LOGIN */
+#loginScreen{position:fixed;inset:0;background:var(--negro);display:none;align-items:center;justify-content:center;z-index:9998;padding:16px;}
+#loginScreen.show{display:flex;}
+.login-box{background:var(--gris-card);border:1px solid var(--gris-borde);border-radius:16px;padding:36px 32px;width:100%;max-width:360px;animation:up 0.2s ease;}
+.login-logo{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;margin-bottom:4px;}
+.login-logo span{color:var(--verde);}
+.login-sub{font-size:13px;color:var(--gris-texto);margin-bottom:28px;font-family:'DM Mono',monospace;}
+.login-error{background:rgba(255,68,68,0.1);border:1px solid rgba(255,68,68,0.3);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--rojo);margin-bottom:12px;display:none;}
+
+/* TOAST */
+#toast{position:fixed;bottom:24px;right:24px;background:var(--gris-card);border:1px solid var(--gris-borde);border-radius:10px;padding:12px 18px;font-size:13px;z-index:9000;opacity:0;transform:translateY(8px);transition:all 0.25s;pointer-events:none;}
+#toast.show{opacity:1;transform:translateY(0);}
+#toast.ok{border-color:var(--verde);color:var(--verde);}
+#toast.err{border-color:var(--rojo);color:var(--rojo);}
+
+/* HEADER */
+header{background:var(--gris-card);border-bottom:1px solid var(--gris-borde);padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:64px;position:sticky;top:0;z-index:100;gap:12px;}
+.header-izq{display:flex;align-items:center;gap:12px;}
+.logo-placeholder{width:40px;height:40px;border-radius:8px;background:var(--gris-borde);border:1px dashed var(--gris-texto);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;transition:all 0.2s;}
+.logo-placeholder:hover{border-color:var(--verde);}
+.logo-img{width:40px;height:40px;border-radius:8px;object-fit:cover;border:1px solid var(--gris-borde);cursor:pointer;display:none;}
+.logo-txt{font-family:'Syne',sans-serif;font-size:19px;font-weight:800;}
+.logo-txt span{color:var(--verde);}
+.sync-info{font-size:10px;color:var(--gris-texto);font-family:'DM Mono',monospace;display:flex;align-items:center;gap:4px;}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--verde);transition:background 0.3s;}
+.sync-dot.off{background:var(--rojo);}
+.header-der{display:flex;align-items:center;gap:10px;}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:rgba(0,230,118,0.15);border:1px solid rgba(0,230,118,0.3);display:flex;align-items:center;justify-content:center;font-size:13px;font-family:'DM Mono',monospace;color:var(--verde);font-weight:700;}
+.user-name{font-size:12px;color:var(--gris-texto);font-family:'DM Mono',monospace;}
+.logout-btn{background:none;border:1px solid var(--gris-borde);color:var(--gris-texto);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;transition:all 0.2s;}
+.logout-btn:hover{border-color:var(--rojo);color:var(--rojo);}
+
+/* NAV */
+nav{display:flex;background:var(--gris-card);border-bottom:1px solid var(--gris-borde);padding:0 24px;overflow-x:auto;}
+nav button{background:none;border:none;color:var(--gris-texto);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;padding:14px 18px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all 0.2s;}
+nav button:hover{color:var(--blanco);}
+nav button.active{color:var(--verde);border-bottom-color:var(--verde);}
+
+/* MAIN */
+main{padding:24px;max-width:1300px;margin:0 auto;}
+.tab{display:none;}.tab.active{display:block;}
+
+/* CARD */
+.card{background:var(--gris-card);border:1px solid var(--gris-borde);border-radius:12px;padding:20px;margin-bottom:20px;}
+.card-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.badge{background:var(--gris-borde);color:var(--gris-texto);font-family:'DM Mono',monospace;font-size:10px;padding:2px 8px;border-radius:4px;}
+
+/* GRILLA */
+.grilla-controles{display:flex;gap:12px;align-items:center;margin-bottom:10px;flex-wrap:wrap;}
+.cancha-tabs{display:flex;gap:8px;}
+.cancha-tab{background:var(--gris-borde);border:none;color:var(--gris-texto);padding:6px 16px;border-radius:6px;font-size:12px;font-family:'DM Mono',monospace;cursor:pointer;transition:all 0.2s;}
+.cancha-tab.active{background:var(--verde);color:var(--negro);font-weight:500;}
+.semana-nav{display:flex;align-items:center;gap:10px;margin-left:auto;}
+.semana-nav button{background:var(--gris-borde);border:none;color:var(--blanco);width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;}
+.semana-nav button:hover{background:var(--verde);color:var(--negro);}
+.semana-label{font-family:'DM Mono',monospace;font-size:12px;color:var(--gris-texto);}
+.leyenda{display:flex;gap:14px;flex-wrap:wrap;padding:6px 0 12px;}
+.leyenda-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--gris-texto);}
+.ldot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+.grilla-wrap{overflow-x:auto;}
+.grilla{width:100%;border-collapse:collapse;font-size:12px;}
+.grilla th{background:var(--gris-fondo);padding:8px 4px;text-align:center;font-family:'DM Mono',monospace;font-size:10px;color:var(--gris-texto);border:1px solid var(--gris-borde);}
+.grilla td{border:1px solid var(--gris-borde);padding:2px;height:48px;min-width:110px;vertical-align:middle;}
+.grilla td.hora{font-family:'DM Mono',monospace;font-size:11px;color:var(--verde);background:var(--gris-fondo);text-align:center;min-width:52px;font-weight:500;}
+.celda-vacia{height:44px;display:flex;align-items:center;justify-content:center;border-radius:4px;cursor:pointer;transition:all 0.15s;}
+.celda-vacia:hover{background:rgba(255,255,255,0.04);}
+.celda-vacia:hover::after{content:'+ Agregar';font-size:10px;color:var(--gris-texto);}
+.celda{display:flex;flex-direction:column;border-radius:4px;padding:3px 5px;min-height:44px;justify-content:space-between;}
+.celda-eventual{background:rgba(0,230,118,0.09);border:1px solid rgba(0,230,118,0.2);}
+.celda-fijo{background:rgba(0,230,118,0.18);border:1px solid rgba(0,230,118,0.45);}
+.celda-ausente{background:rgba(255,214,0,0.12);border:1px solid rgba(255,214,0,0.4);}
+.celda-reemplazo{background:rgba(255,145,0,0.15);border:1px solid rgba(255,145,0,0.5);}
+.celda-asistio{background:rgba(0,230,118,0.28);border:1px solid var(--verde);}
+.celda-top{display:flex;align-items:center;justify-content:space-between;gap:2px;}
+.cnombre{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:500;}
+.c-ev{color:var(--verde);}.c-fijo{color:var(--verde);}.c-aus{color:var(--amarillo);}.c-reemplazo{color:var(--naranja);}
+.celda-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:2px;}
+.asist-btn{background:none;border:1px solid var(--gris-borde);border-radius:3px;color:var(--gris-texto);font-size:9px;padding:1px 5px;cursor:pointer;transition:all 0.15s;white-space:nowrap;}
+.asist-btn:hover{border-color:var(--verde);color:var(--verde);}
+.asist-btn.asistio{background:rgba(0,230,118,0.2);border-color:var(--verde);color:var(--verde);font-weight:600;}
+.cbotones{display:flex;gap:1px;}
+.cbtn{background:none;border:none;cursor:pointer;padding:1px 3px;border-radius:2px;font-size:13px;line-height:1;opacity:0.7;transition:opacity 0.15s;}
+.cbtn:hover{opacity:1;background:rgba(255,255,255,0.07);}
+.cierre-banner{background:rgba(0,230,118,0.07);border:1px solid rgba(0,230,118,0.2);border-radius:10px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.cierre-count{font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:var(--verde);}
+
+/* FORMS */
+.form-group{margin-bottom:12px;}
+.form-group label{display:block;font-size:11px;font-family:'DM Mono',monospace;color:var(--gris-texto);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.4px;}
+.form-group input,.form-group select{width:100%;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color 0.2s;}
+.form-group input:focus,.form-group select:focus{border-color:var(--verde);}
+.form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.check-label{display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;background:var(--gris-fondo);border-radius:8px;border:1px solid var(--gris-borde);font-size:13px;user-select:none;}
+.check-label input[type=checkbox]{width:15px;height:15px;accent-color:var(--verde);cursor:pointer;}
+
+/* BOTONES */
+.btn{background:var(--verde);color:var(--negro);border:none;padding:10px 20px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;}
+.btn:hover{background:var(--verde-dark);}
+.btn:disabled{opacity:0.5;cursor:not-allowed;}
+.btn-ghost{background:var(--gris-borde);color:var(--blanco);}
+.btn-ghost:hover{background:#3a3d44;}
+.btn-danger{background:rgba(255,68,68,0.13);color:var(--rojo);}
+.btn-danger:hover{background:rgba(255,68,68,0.22);}
+.btn-sm{padding:6px 12px;font-size:12px;border-radius:6px;}
+
+/* TABLAS */
+.tbl{width:100%;border-collapse:collapse;font-size:13px;}
+.tbl th{background:var(--gris-fondo);padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:10px;color:var(--gris-texto);border-bottom:1px solid var(--gris-borde);text-transform:uppercase;}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--gris-borde);vertical-align:middle;}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:rgba(255,255,255,0.015);}
+.tbl-total td{background:rgba(0,230,118,0.05)!important;font-family:'DM Mono',monospace;color:var(--verde);font-weight:600;}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px;margin-bottom:20px;}
+.stat{background:var(--gris-card);border:1px solid var(--gris-borde);border-radius:10px;padding:16px;}
+.stat-lbl{font-family:'DM Mono',monospace;font-size:10px;color:var(--gris-texto);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;}
+.stat-val{font-family:'Syne',sans-serif;font-size:21px;font-weight:700;}
+
+/* MES BAR */
+.mes-bar{display:flex;gap:8px;align-items:center;margin-bottom:18px;flex-wrap:wrap;}
+.mes-bar select{background:var(--gris-card);border:1px solid var(--gris-borde);color:var(--blanco);padding:8px 12px;border-radius:8px;font-family:'DM Mono',monospace;font-size:13px;outline:none;cursor:pointer;}
+
+/* SOCIOS */
+.socios-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.socio-card{background:var(--gris-fondo);border-radius:10px;padding:16px;border:1px solid var(--gris-borde);}
+.socio-nombre{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;margin-bottom:2px;}
+.socio-total{font-family:'DM Mono',monospace;font-size:22px;margin:10px 0;}
+.retiro-item{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--gris-borde);font-size:13px;}
+.retiro-item:last-child{border-bottom:none;}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.78);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px;}
+.overlay.open{display:flex;}
+.modal{background:var(--gris-card);border:1px solid var(--gris-borde);border-radius:14px;padding:24px;width:100%;max-width:400px;animation:up 0.18s ease;max-height:90vh;overflow-y:auto;}
+@keyframes up{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:16px;}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+
+/* CONFIG */
+.cfg-section{background:var(--gris-fondo);border-radius:10px;padding:16px;margin-bottom:14px;}
+.cfg-section-title{font-size:12px;font-weight:600;margin-bottom:12px;color:var(--blanco);}
+.logo-upload-area{border:2px dashed var(--gris-borde);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:4px;}
+.logo-upload-area:hover{border-color:var(--verde);}
+.logo-preview{max-height:80px;max-width:200px;border-radius:6px;margin:0 auto 8px;display:block;}
+
+/* USUARIOS */
+.usuario-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--negro);border-radius:8px;margin-bottom:6px;border:1px solid var(--gris-borde);}
+.usuario-info{display:flex;align-items:center;gap:10px;}
+.usuario-avatar{width:30px;height:30px;border-radius:50%;background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.2);display:flex;align-items:center;justify-content:center;font-size:12px;font-family:'DM Mono',monospace;color:var(--verde);font-weight:600;}
+.usuario-nombre{font-size:13px;font-weight:500;}
+.usuario-rol{font-size:10px;color:var(--gris-texto);font-family:'DM Mono',monospace;}
+
+/* UTILS */
+.mono{font-family:'DM Mono',monospace;}
+.c-verde{color:var(--verde);}.c-rojo{color:var(--rojo);}
+.c-amarillo{color:var(--amarillo);}.c-azul{color:var(--azul);}.c-naranja{color:var(--naranja);}
+.empty{text-align:center;padding:36px;color:var(--gris-texto);font-size:13px;}
+.empty-icon{font-size:28px;margin-bottom:6px;}
+
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:var(--gris-fondo);}
+::-webkit-scrollbar-thumb{background:var(--gris-borde);border-radius:3px;}
+
+@media(max-width:600px){
+  main{padding:12px;}.socios-grid{grid-template-columns:1fr;}
+  .stats{grid-template-columns:1fr 1fr;}.grilla td{min-width:90px;}
+  .fecha-hoy{display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="spinner"></div>
+  <div class="loading-txt" id="loadingTxt">Conectando con Firebase...</div>
+</div>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">CANCHAS<span>.</span></div>
+    <div class="login-sub" id="loginSubtitle">Iniciá sesión para continuar</div>
+    <div class="login-error" id="loginError">Usuario o contraseña incorrectos</div>
+    <div class="form-group">
+      <label>Usuario</label>
+      <input type="text" id="loginUser" placeholder="tu usuario" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>Contraseña</label>
+      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn" id="btnLogin" onclick="hacerLogin()" style="width:100%;margin-top:4px">Ingresar</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="header-izq">
+    <div class="logo-placeholder" id="logoBtn" onclick="document.getElementById('logoInput').click()" title="Cambiar logo">⚽</div>
+    <img id="logoImg" class="logo-img" onclick="document.getElementById('logoInput').click()" title="Cambiar logo">
+    <input type="file" id="logoInput" accept="image/*" style="display:none" onchange="subirLogo(event)">
+    <div>
+      <div class="logo-txt" id="headerNombre">CANCHAS<span>.</span></div>
+      <div class="sync-info">Firebase <span class="sync-dot off" id="syncDot"></span></div>
+    </div>
+  </div>
+  <div class="header-der">
+    <div style="text-align:right">
+      <div class="user-name" id="userNameDisplay"></div>
+      <button class="logout-btn" onclick="cerrarSesion()">Salir</button>
+    </div>
+    <div class="user-avatar" id="userAvatar">?</div>
+  </div>
+</header>
+
+<!-- NAV -->
+<nav>
+  <button class="active" onclick="irA('turnos',this)">⚽ Turnos</button>
+  <button onclick="irA('caja',this)">💰 Caja</button>
+  <button onclick="irA('gastos',this)">📋 Gastos</button>
+  <button onclick="irA('socios',this)">👥 Socios</button>
+  <button onclick="irA('resumen',this)">📊 Resumen</button>
+  <button onclick="irA('hoy',this)">📅 Hoy</button>
+  <button onclick="irA('clientes',this)">📱 Clientes</button>
+  <button onclick="irA('config',this)">⚙️ Config</button>
+</nav>
+
+<main>
+
+<!-- TURNOS -->
+<div class="tab active" id="tab-turnos">
+  <div class="card">
+    <div class="grilla-controles">
+      <div class="cancha-tabs">
+        <button class="cancha-tab active" onclick="cambiarCancha(1,this)">Cancha 1</button>
+        <button class="cancha-tab" onclick="cambiarCancha(2,this)">Cancha 2</button>
+      </div>
+      <div class="semana-nav">
+        <button onclick="moverSemana(-1)">‹</button>
+        <span class="semana-label" id="lblSemana"></span>
+        <button onclick="moverSemana(1)">›</button>
+      </div>
+    </div>
+    <div class="leyenda">
+      <div class="leyenda-item"><div class="ldot" style="background:rgba(0,230,118,0.18);border:1px solid rgba(0,230,118,0.45)"></div>★ Fijo</div>
+      <div class="leyenda-item"><div class="ldot" style="background:rgba(255,214,0,0.15);border:1px solid rgba(255,214,0,0.4)"></div>⚠ Ausente</div>
+      <div class="leyenda-item"><div class="ldot" style="background:rgba(255,145,0,0.18);border:1px solid rgba(255,145,0,0.5)"></div>↔ Reemplazo</div>
+      <div class="leyenda-item"><div class="ldot" style="background:rgba(0,230,118,0.09);border:1px solid rgba(0,230,118,0.2)"></div>Eventual</div>
+      <div class="leyenda-item"><div class="ldot" style="background:rgba(0,230,118,0.28);border:1px solid var(--verde)"></div>✓ Asistió</div>
+    </div>
+    <div class="cierre-banner" id="cierreBanner" style="display:none">
+      <div>
+        <div style="font-size:11px;color:var(--gris-texto);font-family:'DM Mono',monospace;margin-bottom:2px">ASISTIERON HOY</div>
+        <div class="cierre-count" id="cierreCount">0</div>
+      </div>
+      <button class="btn btn-sm" onclick="abrirCierreDia()">📋 Registrar caja del día</button>
+    </div>
+    <div class="grilla-wrap">
+      <table class="grilla" id="laGrilla"></table>
+    </div>
+  </div>
+</div>
+
+<!-- CAJA -->
+<div class="tab" id="tab-caja">
+  <div class="mes-bar">
+    <select id="selCaja" onchange="pintarCaja()"></select>
+    <button class="btn btn-sm" onclick="abrirCaja()">+ Agregar día</button>
+  </div>
+  <div class="stats" id="statsCaja"></div>
+  <div class="card">
+    <div class="card-title">Registro diario <span class="badge" id="badgeCaja"></span></div>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>Fecha</th><th>Turnos</th><th id="thGas">− Gaseosas</th><th id="thZul">− Empleada</th><th>Total</th><th></th></tr></thead>
+        <tbody id="bodyCaja"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- GASTOS -->
+<div class="tab" id="tab-gastos">
+  <div class="mes-bar">
+    <select id="selGastos" onchange="pintarGastos()"></select>
+    <button class="btn btn-sm" onclick="abrirGasto()">+ Agregar gasto</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Gastos del mes</div>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>Fecha</th><th>Descripción</th><th>Monto</th><th></th></tr></thead>
+        <tbody id="bodyGastos"></tbody>
+      </table>
+    </div>
+    <div style="text-align:right;margin-top:10px">
+      <span style="font-size:11px;color:var(--gris-texto);font-family:'DM Mono',monospace">TOTAL: </span>
+      <span class="mono c-rojo" id="totalGastos" style="font-size:15px;font-weight:600"></span>
+    </div>
+  </div>
+</div>
+
+<!-- SOCIOS -->
+<div class="tab" id="tab-socios">
+  <div class="mes-bar">
+    <select id="selSocios" onchange="pintarSocios()"></select>
+    <button class="btn btn-sm" onclick="abrirRetiro()">+ Agregar retiro</button>
+  </div>
+  <div class="socios-grid" id="gridSocios"></div>
+</div>
+
+<!-- RESUMEN -->
+<div class="tab" id="tab-resumen">
+  <div class="mes-bar">
+    <select id="selResumen" onchange="pintarResumen()"></select>
+  </div>
+  <div class="stats" id="statsResumen"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="card"><div class="card-title">📥 Ingresos</div><div id="resIng"></div></div>
+    <div class="card"><div class="card-title">📤 Egresos</div><div id="resEg"></div></div>
+  </div>
+</div>
+
+<!-- CONFIG -->
+<div class="tab" id="tab-config">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;flex-wrap:wrap">
+
+    <!-- Columna izquierda: configuracion general -->
+    <div>
+      <div class="card">
+        <div class="card-title">⚙️ General</div>
+        <div class="cfg-section">
+          <div class="cfg-section-title">🏟️ Nombre del complejo</div>
+          <div class="form-group" style="margin-bottom:0">
+            <input type="text" id="cfgNombreComplejo" placeholder="Ej: Canchas Al Toque">
+          </div>
+        </div>
+        <div class="cfg-section">
+          <div class="cfg-section-title">🖼️ Logo</div>
+          <div class="logo-upload-area" onclick="document.getElementById('logoInput').click()">
+            <img id="cfgLogoPreview" class="logo-preview" style="display:none">
+            <div id="cfgLogoTxt"><div style="font-size:28px;margin-bottom:6px">🖼️</div><div style="font-size:13px;color:var(--gris-texto)">Click para subir logo</div></div>
+          </div>
+        </div>
+        <div class="cfg-section">
+          <div class="cfg-section-title">👥 Socios</div>
+          <div class="form-grid-2">
+            <div class="form-group" style="margin-bottom:0"><label>Socio 1</label><input type="text" id="cfgSocio1" placeholder="Fer"></div>
+            <div class="form-group" style="margin-bottom:0"><label>Socio 2</label><input type="text" id="cfgSocio2" placeholder="Papa"></div>
+          </div>
+        </div>
+        <div class="cfg-section">
+          <div class="cfg-section-title">🧹 Empleada</div>
+          <div class="form-group" style="margin-bottom:0"><label>Nombre</label><input type="text" id="cfgEmpleada" placeholder="Zulma"></div>
+        </div>
+        <div class="cfg-section">
+          <div class="cfg-section-title">💰 Precios</div>
+          <div class="form-group"><label>Precio por turno ($)</label><input type="number" id="cfgPrecioTurno" placeholder="35000"></div>
+          <div class="form-group"><label>Precio gaseosa / turno ($)</label><input type="number" id="cfgPrecioGaseosa" placeholder="0"></div>
+          <div class="form-group" style="margin-bottom:0"><label>Precio hora empleada ($)</label><input type="number" id="cfgPrecioZulma" placeholder="0"></div>
+        </div>
+        <button class="btn" id="btnGuardarConfig" onclick="guardarConfig()" style="width:100%">Guardar configuración</button>
+        <div id="cfgMsg" style="font-size:12px;color:var(--verde);margin-top:10px;text-align:center;display:none">✓ Guardado en la nube</div>
+      </div>
+    </div>
+
+    <!-- Columna derecha: usuarios -->
+    <div>
+      <div class="card">
+        <div class="card-title">👤 Usuarios del sistema</div>
+        <p style="font-size:13px;color:var(--gris-texto);margin-bottom:6px;line-height:1.5">El usuario <strong style="color:var(--verde)">admin</strong> siempre tiene acceso. Solo el admin puede gestionar usuarios.</p>
+        <div style="background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.15);border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:12px;color:var(--gris-texto)">
+          💡 Para cambiar la contraseña del admin, borrá el usuario y crealo de nuevo con la nueva contraseña.
+        </div>
+
+        <!-- Usuario admin -->
+        <div class="cfg-section" style="margin-bottom:12px">
+          <div class="cfg-section-title">🔑 Contraseña del admin</div>
+          <div class="form-group" style="margin-bottom:8px"><label>Nueva contraseña admin</label><input type="password" id="cfgAdminPass" placeholder="••••••••"></div>
+          <button class="btn btn-sm btn-ghost" id="btnCambiarPassAdmin" onclick="cambiarPassAdmin()">Cambiar contraseña</button>
+        </div>
+
+        <div id="listaUsuarios" style="margin-bottom:16px"></div>
+
+        <div style="background:var(--gris-fondo);border-radius:10px;padding:16px">
+          <div style="font-size:12px;font-weight:600;margin-bottom:12px">➕ Nuevo usuario</div>
+          <div class="form-grid-2">
+            <div class="form-group" style="margin-bottom:8px"><label>Usuario</label><input type="text" id="nuevoUser" placeholder="Ej: maria"></div>
+            <div class="form-group" style="margin-bottom:8px"><label>Contraseña</label><input type="password" id="nuevoPass" placeholder="••••••••"></div>
+          </div>
+          <button class="btn btn-sm" id="btnCrearUsuario" onclick="crearUsuario()">Crear usuario</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- CLIENTES -->
+<div class="tab" id="tab-clientes">
+  <div class="card">
+    <div class="card-title">📱 Clientes <span class="badge" id="badgeClientes"></span></div>
+    <div style="margin-bottom:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" id="buscarCliente" placeholder="🔍 Buscar por nombre o teléfono..." oninput="pintarClientes()" style="background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:9px 14px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;flex:1;min-width:200px;transition:border-color 0.2s">
+    </div>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>Nombre</th><th>Teléfono</th><th>Cancha</th><th>Día / Hora</th><th>Acciones</th></tr></thead>
+        <tbody id="bodyClientes"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- HOY -->
+<div class="tab" id="tab-hoy">
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+    <div>
+      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800" id="hoyTitulo"></div>
+      <div style="font-size:12px;color:var(--gris-texto);font-family:'DM Mono',monospace" id="hoySubtitulo"></div>
+    </div>
+    <button class="btn btn-sm btn-ghost" style="margin-left:auto" onclick="pintarHoy()">↺ Actualizar</button>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" id="hoyGrid"></div>
+</div>
+</main>
+
+<!-- MODAL: TURNO -->
+<div class="overlay" id="ovTurno">
+  <div class="modal">
+    <div class="modal-title" id="tituloTurno">Agregar turno</div>
+    <div class="form-group"><label>Nombre</label><input type="text" id="inNombre" placeholder="Ej: Juan Pérez"></div>
+    <label class="check-label"><input type="checkbox" id="inFijo"><span>Turno fijo <span style="color:var(--gris-texto);font-size:11px">(se repite todas las semanas)</span></span></label>
+    <div id="fijoExtra" style="display:none;margin-top:10px;background:var(--gris-fondo);border-radius:8px;padding:12px;border:1px solid rgba(0,230,118,0.2)">
+      <div style="font-size:11px;color:var(--verde);font-family:'DM Mono',monospace;margin-bottom:8px">📱 DATOS DEL CLIENTE (opcional)</div>
+      <div class="form-group" style="margin-bottom:0"><label>Teléfono / WhatsApp</label><input type="tel" id="inTelefono" placeholder="Ej: 2614123456"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="cerrar('ovTurno')">Cancelar</button>
+      <button class="btn btn-sm" id="btnGuardarTurno" onclick="guardarTurno()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: AUSENTE -->
+<div class="overlay" id="ovAusente">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-title">Fijo ausente esta semana</div>
+    <p style="font-size:13px;color:var(--gris-texto);margin-bottom:14px;line-height:1.5"><strong id="ausenteNombre" style="color:var(--amarillo)"></strong> no viene.<br>¿Hay alguien que lo reemplaza?</p>
+    <div class="form-group"><label>Nombre del reemplazante (opcional)</label><input type="text" id="inReemplazo" placeholder="Dejar vacío si queda libre"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="cerrar('ovAusente')">Cancelar</button>
+      <button class="btn btn-sm" id="btnConfAusente">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: BORRAR FIJO -->
+<div class="overlay" id="ovBorrarFijo">
+  <div class="modal" style="max-width:340px">
+    <div class="modal-title">¿Eliminar turno fijo?</div>
+    <p style="font-size:13px;color:var(--gris-texto);line-height:1.6;margin-bottom:6px"><strong id="borrarFijoNombre" style="color:var(--blanco)"></strong> se eliminará para <strong style="color:var(--rojo)">todas las semanas</strong>.</p>
+    <p style="font-size:12px;color:var(--gris-texto)">Si solo no viene esta semana, usá el botón ✕ amarillo.</p>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="cerrar('ovBorrarFijo')">Cancelar</button>
+      <button class="btn btn-danger btn-sm" id="btnBorrarFijo">Sí, eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: CAJA -->
+<div class="overlay" id="ovCaja">
+  <div class="modal">
+    <div class="modal-title" id="tituloCaja">Registrar día</div>
+    <div class="form-grid-2">
+      <div class="form-group"><label>Fecha</label><input type="date" id="cFecha"></div>
+      <div class="form-group"><label>Cant. turnos</label><input type="number" id="cTurnos" placeholder="0" step="0.5" min="0"></div>
+    </div>
+    <div style="background:var(--gris-fondo);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-size:10px;color:var(--gris-texto);font-family:'DM Mono',monospace;text-transform:uppercase;margin-bottom:8px">Descuentos</div>
+      <div class="form-grid-2">
+        <div class="form-group" style="margin-bottom:0"><label>Cant. gaseosas <span id="lblGas" style="color:var(--amarillo);text-transform:none;font-size:10px"></span></label><input type="number" id="cGaseosa" placeholder="0" min="0"></div>
+        <div class="form-group" style="margin-bottom:0"><label id="lblHorasEmp">Horas empleada <span id="lblZul" style="color:var(--amarillo);text-transform:none;font-size:10px"></span></label><input type="number" id="cZulma" placeholder="0" step="0.5" min="0"></div>
+      </div>
+    </div>
+    <div class="form-group"><label>Ventas MP</label><input type="number" id="cVentas" placeholder="0"></div>
+    <div style="background:var(--gris-fondo);border-radius:8px;padding:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:var(--gris-texto);font-family:'DM Mono',monospace">INGRESOS</span><span class="mono" id="cSubIng">$0</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:var(--gris-texto);font-family:'DM Mono',monospace">− GASEOSAS</span><span class="mono c-rojo" id="cSubGas">$0</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="font-size:11px;color:var(--gris-texto);font-family:'DM Mono',monospace" id="lblDesEmp">− EMPLEADA</span><span class="mono c-rojo" id="cSubZul">$0</span></div>
+      <div style="border-top:1px solid var(--gris-borde);padding-top:10px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:var(--gris-texto);font-family:'DM Mono',monospace">TOTAL</span>
+        <span class="mono c-verde" id="cTotal" style="font-size:20px;font-weight:600">$0</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="cerrar('ovCaja')">Cancelar</button>
+      <button class="btn btn-sm" id="btnGuardarCaja" onclick="guardarCaja()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: GASTO -->
+<div class="overlay" id="ovGasto">
+  <div class="modal">
+    <div class="modal-title">Agregar gasto</div>
+    <div class="form-group"><label>Fecha</label><input type="date" id="gFecha"></div>
+    <div class="form-group"><label>Descripción</label><input type="text" id="gDesc" placeholder="Ej: Alquiler, Luz, CTC..."></div>
+    <div class="form-group"><label>Monto</label><input type="number" id="gMonto" placeholder="0"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="cerrar('ovGasto')">Cancelar</button>
+      <button class="btn btn-sm" id="btnGuardarGasto" onclick="guardarGasto()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: RETIRO -->
+<div class="overlay" id="ovRetiro">
+  <div class="modal">
+    <div class="modal-title">Registrar retiro de socios</div>
+    <div class="form-group"><label>Fecha</label><input type="date" id="rFecha"></div>
+    <div class="form-grid-2">
+      <div class="form-group"><label id="lblS1">Socio 1</label><input type="number" id="rFer" placeholder="0"></div>
+      <div class="form-group"><label id="lblS2">Socio 2</label><input type="number" id="rPapa" placeholder="0"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="cerrar('ovRetiro')">Cancelar</button>
+      <button class="btn btn-sm" id="btnGuardarRetiro" onclick="guardarRetiro()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore,doc,getDoc,setDoc,addDoc,deleteDoc,collection,getDocs,onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey:"AIzaSyC6maHrxgHMijifYpbPvdnJhnVAiATxAvA",
+  authDomain:"canchas-al-toque-fbdbc.firebaseapp.com",
+  projectId:"canchas-al-toque-fbdbc",
+  storageBucket:"canchas-al-toque-fbdbc.firebasestorage.app",
+  messagingSenderId:"1077844482038",
+  appId:"1:1077844482038:web:7c4cfcca989612c32fd9d7"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+var DIAS  = ['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'];
+var HORAS = ['13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00'];
+var MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+var D = {
+  cancha:1, semana:0,
+  eventuales:{1:{},2:{}},
+  fijos:{1:{},2:{}},
+  ausentes:{1:{},2:{}},
+  asistencias:{1:{},2:{}},
+  caja:{}, gastos:{}, retiros:{},
+  config:{ nombreComplejo:'Canchas Al Toque', socio1:'Fer', socio2:'Papa', empleada:'Empleada', precioTurno:35000, precioGaseosa:0, precioZulma:0, adminPass:'admin123' },
+  usuarios:{},
+  clientes:{},
+  _dia:null, _hora:null
+};
+
+var sesion = { usuario:null, esAdmin:false };
+
+// ── UTILS ──────────────────────────────────────────────────
+function fmt(n){ return '$'+(Number(n)||0).toLocaleString('es-AR'); }
+function fmtF(s){ if(!s)return''; var p=s.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+function hoy(){ return new Date().toISOString().split('T')[0]; }
+function mkMes(f){ return f.slice(0,7); }
+function mkHoy(){ return mkMes(hoy()); }
+function dSem(f){ var d=new Date(f+'T12:00:00'); return (d.getDay()+6)%7; }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/'/g,'&#39;').replace(/"/g,'&quot;'); }
+function stat(lbl,val,cls){ return '<div class="stat"><div class="stat-lbl">'+lbl+'</div><div class="stat-val '+(cls||'')+'">'+val+'</div></div>'; }
+function setBusy(id,b){ var el=document.getElementById(id); if(el) el.disabled=b; }
+function setSynced(ok){ document.getElementById('syncDot').className='sync-dot'+(ok?'':' off'); }
+function toast(msg,tipo){ var el=document.getElementById('toast'); el.textContent=msg; el.className='show '+(tipo||'ok'); clearTimeout(el._t); el._t=setTimeout(function(){ el.className=''; },2800); }
+function abrir(id){ document.getElementById(id).classList.add('open'); }
+function cerrar(id){ document.getElementById(id).classList.remove('open'); }
+window.cerrar=cerrar;
+
+document.addEventListener('click',function(e){ if(e.target.classList.contains('overlay')) e.target.classList.remove('open'); });
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape') document.querySelectorAll('.overlay.open').forEach(function(o){ o.classList.remove('open'); });
+  if(e.key==='Enter' && document.getElementById('loginScreen').classList.contains('show')) hacerLogin();
+});
+
+// ── LOGIN ──────────────────────────────────────────────────
+function hacerLogin(){
+  var user=document.getElementById('loginUser').value.trim().toLowerCase();
+  var pass=document.getElementById('loginPass').value;
+  if(!user||!pass) return;
+  setBusy('btnLogin',true);
+  document.getElementById('loginError').style.display='none';
+
+  var found=null;
+  // chequear admin
+  if(user==='admin' && pass===(D.config.adminPass||'admin123')){
+    found={ usuario:'admin', esAdmin:true };
+  }
+  // chequear usuarios creados
+  if(!found){
+    Object.values(D.usuarios||{}).forEach(function(u){ if(u.usuario===user && u.pass===pass) found=u; });
+  }
+
+  if(found){
+    sesion={ usuario:found.usuario, esAdmin:!!found.esAdmin };
+    localStorage.setItem('canchas_sesion',JSON.stringify(sesion));
+    document.getElementById('loginScreen').classList.remove('show');
+    document.getElementById('userAvatar').textContent=found.usuario[0].toUpperCase();
+    document.getElementById('userNameDisplay').textContent=found.usuario;
+    pintarGrilla();
+  } else {
+    document.getElementById('loginError').style.display='block';
+  }
+  setBusy('btnLogin',false);
+}
+window.hacerLogin=hacerLogin;
+
+window.cerrarSesion=function(){
+  sesion={ usuario:null, esAdmin:false };
+  localStorage.removeItem('canchas_sesion');
+  document.getElementById('loginUser').value='';
+  document.getElementById('loginPass').value='';
+  document.getElementById('loginError').style.display='none';
+  document.getElementById('loginScreen').classList.add('show');
+};
+
+// ── NAVEGACIÓN ─────────────────────────────────────────────
+window.irA=function(tab,btn){
+  document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+  document.querySelectorAll('nav button').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('tab-'+tab).classList.add('active');
+  btn.classList.add('active');
+  if(tab==='caja')    pintarCaja();
+  if(tab==='gastos')  pintarGastos();
+  if(tab==='socios')  pintarSocios();
+  if(tab==='resumen') pintarResumen();
+  if(tab==='config')  pintarConfig();
+  if(tab==='clientes') pintarClientes();
+  if(tab==='hoy')      pintarHoy();
+};
+
+// ── SEMANA ─────────────────────────────────────────────────
+function inicioSemana(off){ var d=new Date(); d.setHours(0,0,0,0); var dow=d.getDay(); d.setDate(d.getDate()+(dow===0?-6:1-dow)+off*7); return d; }
+function diasSemana(off){ var ini=inicioSemana(off); return Array.from({length:7},function(_,i){ var d=new Date(ini); d.setDate(ini.getDate()+i); return d.toISOString().split('T')[0]; }); }
+window.moverSemana=function(dir){ D.semana+=dir; pintarGrilla(); };
+window.cambiarCancha=function(n,btn){ D.cancha=n; document.querySelectorAll('.cancha-tab').forEach(function(b){ b.classList.remove('active'); }); btn.classList.add('active'); pintarGrilla(); };
+
+// ── GRILLA ─────────────────────────────────────────────────
+function pintarGrilla(){
+  var dias=diasSemana(D.semana);
+  document.getElementById('lblSemana').textContent=fmtF(dias[0]).slice(0,5)+' — '+fmtF(dias[6]).slice(0,5);
+  var c=D.cancha, ev=D.eventuales[c], fij=D.fijos[c], aus=D.ausentes[c], asi=D.asistencias[c]||{};
+  var hoyStr=hoy();
+
+  // Banner cierre
+  var countHoy=0;
+  HORAS.forEach(function(h){ if(asi[hoyStr]&&asi[hoyStr][h]) countHoy++; });
+  document.getElementById('cierreCount').textContent=countHoy;
+  document.getElementById('cierreBanner').style.display=dias.includes(hoyStr)?'flex':'none';
+
+  var html='<thead><tr><th>Hora</th>';
+  dias.forEach(function(dia,i){ var pp=dia.split('-'),esHoy=dia===hoyStr; html+='<th'+(esHoy?' style="color:var(--verde)"':'')+'>'+DIAS[i]+'<br><span style="font-size:10px;font-weight:400">'+pp[2]+'/'+pp[1]+'</span></th>'; });
+  html+='</tr></thead><tbody>';
+
+  HORAS.forEach(function(hora){
+    html+='<tr><td class="hora">'+hora+'</td>';
+    dias.forEach(function(dia){
+      var ds=dSem(dia),nFijo=(fij[ds]||{})[hora],ausData=aus[dia]&&aus[dia][hora],nEv=(ev[dia]||{})[hora],asistio=!!(asi[dia]&&asi[dia][hora]),esHoy=dia===hoyStr;
+      var abtn=esHoy?'<button class="asist-btn'+(asistio?' asistio':'')+'" onclick="toggleAsi(\''+dia+'\',\''+hora+'\')">'+(asistio?'✓ Asistió':'Tildar asistencia')+'</button>':'';
+
+      if(nFijo){
+        if(ausData){
+          var reem=typeof ausData==='object'?ausData.reemplazo:'';
+          if(reem){
+            html+='<td><div class="celda celda-reemplazo'+(asistio?' celda-asistio':'')+'"><div class="celda-top"><span class="cnombre c-reemplazo" title="'+esc(reem)+' reemplaza a '+esc(nFijo)+'">↔ '+esc(reem)+'</span><div class="cbotones"><button class="cbtn" style="color:var(--rojo)" onclick="pedirBorrarFijo(\''+dia+'\',\''+hora+'\','+ds+')">×</button></div></div><div class="celda-bottom">'+abtn+'<button class="cbtn" style="color:var(--gris-texto);font-size:10px" onclick="quitarAus(\''+dia+'\',\''+hora+'\')">↩</button></div></div></td>';
+          } else {
+            html+='<td><div class="celda celda-ausente"><div class="celda-top"><span class="cnombre c-aus">⚠ '+esc(nFijo)+'</span><div class="cbotones"><button class="cbtn" style="color:var(--rojo)" onclick="pedirBorrarFijo(\''+dia+'\',\''+hora+'\','+ds+')">×</button></div></div><div class="celda-bottom"><span style="font-size:10px;color:var(--gris-texto)">Libre para vender</span><button class="cbtn" style="color:var(--gris-texto);font-size:10px" onclick="quitarAus(\''+dia+'\',\''+hora+'\')">↩</button></div></div></td>';
+          }
+        } else {
+          html+='<td><div class="celda celda-fijo'+(asistio?' celda-asistio':'')+'"><div class="celda-top"><span class="cnombre c-fijo">★ '+esc(nFijo)+'</span><div class="cbotones"><button class="cbtn" style="color:var(--amarillo)" title="Marcar ausente" onclick="marcarAus(\''+dia+'\',\''+hora+'\',\''+esc(nFijo)+'\')">✕</button><button class="cbtn" style="color:var(--rojo)" onclick="pedirBorrarFijo(\''+dia+'\',\''+hora+'\','+ds+')">×</button></div></div><div class="celda-bottom">'+abtn+'</div></div></td>';
+        }
+      } else if(nEv){
+        html+='<td><div class="celda celda-eventual'+(asistio?' celda-asistio':'')+'"><div class="celda-top"><span class="cnombre c-ev">'+esc(nEv)+'</span><div class="cbotones"><button class="cbtn" style="color:var(--rojo)" onclick="borrarEv(\''+dia+'\',\''+hora+'\')">×</button></div></div><div class="celda-bottom">'+abtn+'</div></div></td>';
+      } else {
+        html+='<td><div class="celda-vacia" onclick="abrirTurno(\''+dia+'\',\''+hora+'\')"></div></td>';
+      }
+    });
+    html+='</tr>';
+  });
+  html+='</tbody>';
+  document.getElementById('laGrilla').innerHTML=html;
+}
+
+// Agregar turno
+window.abrirTurno=function(dia,hora){
+  D._dia=dia; D._hora=hora;
+  document.getElementById('inNombre').value='';
+  document.getElementById('inFijo').checked=false;
+  var pp=dia.split('-');
+  document.getElementById('tituloTurno').textContent='Cancha '+D.cancha+' · '+pp[2]+'/'+pp[1]+' · '+hora;
+  abrir('ovTurno');
+  setTimeout(function(){ document.getElementById('inNombre').focus(); },80);
+  document.getElementById('fijoExtra').style.display='none';
+  document.getElementById('inTelefono').value='';
+  document.getElementById('inFijo').onchange=function(){ document.getElementById('fijoExtra').style.display=this.checked?'block':'none'; };
+};
+window.guardarTurno=async function(){
+  var nombre=document.getElementById('inNombre').value.trim();
+  if(!nombre){ document.getElementById('inNombre').focus(); return; }
+  var esFijo=document.getElementById('inFijo').checked,dia=D._dia,hora=D._hora,c=D.cancha,ds=dSem(dia);
+  setBusy('btnGuardarTurno',true);
+  try{
+    if(esFijo){
+      if(!D.fijos[c][ds]) D.fijos[c][ds]={};
+      D.fijos[c][ds][hora]=nombre;
+      if(D.eventuales[c][dia]) delete D.eventuales[c][dia][hora];
+      await setDoc(doc(db,'fijos','cancha'+c),{data:D.fijos[c]});
+      // Guardar cliente si tiene telefono
+      var tel=document.getElementById('inTelefono').value.trim();
+      var clienteId='c_'+c+'_'+ds+'_'+hora.replace(':','');
+      if(!D.clientes) D.clientes={};
+      D.clientes[clienteId]={ nombre:nombre, telefono:tel, cancha:c, diaSem:ds, hora:hora };
+      await setDoc(doc(db,'config','clientes'),{data:D.clientes});
+    } else {
+      if(!D.eventuales[c][dia]) D.eventuales[c][dia]={};
+      D.eventuales[c][dia][hora]=nombre;
+      await setDoc(doc(db,'eventuales','cancha'+c),{data:D.eventuales[c]});
+    }
+    cerrar('ovTurno'); setSynced(true); toast('Turno guardado ✓'); pintarGrilla();
+  } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+  setBusy('btnGuardarTurno',false);
+};
+
+// Borrar eventual
+window.borrarEv=async function(dia,hora){
+  var c=D.cancha;
+  if(D.eventuales[c][dia]) delete D.eventuales[c][dia][hora];
+  if(D.asistencias[c]&&D.asistencias[c][dia]) delete D.asistencias[c][dia][hora];
+  try{ await setDoc(doc(db,'eventuales','cancha'+c),{data:D.eventuales[c]}); await setDoc(doc(db,'asistencias','cancha'+c),{data:D.asistencias[c]}); setSynced(true); toast('Turno eliminado'); } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+  pintarGrilla();
+};
+
+// Marcar ausente
+window.marcarAus=function(dia,hora,nombre){
+  document.getElementById('ausenteNombre').textContent=nombre;
+  document.getElementById('inReemplazo').value='';
+  document.getElementById('btnConfAusente').onclick=async function(){
+    var reem=document.getElementById('inReemplazo').value.trim(),c=D.cancha;
+    if(!D.ausentes[c][dia]) D.ausentes[c][dia]={};
+    D.ausentes[c][dia][hora]={ reemplazo:reem };
+    cerrar('ovAusente');
+    try{ await setDoc(doc(db,'ausentes','cancha'+c),{data:D.ausentes[c]}); setSynced(true); toast(reem?'Reemplazo guardado ✓':'Marcado ausente'); } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+    pintarGrilla();
+  };
+  abrir('ovAusente');
+  setTimeout(function(){ document.getElementById('inReemplazo').focus(); },80);
+};
+
+// Quitar ausencia
+window.quitarAus=async function(dia,hora){
+  var c=D.cancha;
+  if(D.ausentes[c][dia]) delete D.ausentes[c][dia][hora];
+  try{ await setDoc(doc(db,'ausentes','cancha'+c),{data:D.ausentes[c]}); setSynced(true); toast('Ausencia removida'); } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+  pintarGrilla();
+};
+
+// Pedir borrar fijo
+window.pedirBorrarFijo=function(dia,hora,ds){
+  var c=D.cancha,nombre=((D.fijos[c][ds])||{})[hora]||'este turno';
+  document.getElementById('borrarFijoNombre').textContent=nombre;
+  document.getElementById('btnBorrarFijo').onclick=async function(){
+    if(D.fijos[c][ds]) delete D.fijos[c][ds][hora];
+    if(D.ausentes[c][dia]) delete D.ausentes[c][dia][hora];
+    if(D.asistencias[c]&&D.asistencias[c][dia]) delete D.asistencias[c][dia][hora];
+    var clienteId='c_'+c+'_'+ds+'_'+hora.replace(':','');
+    if(D.clientes&&D.clientes[clienteId]) delete D.clientes[clienteId];
+    cerrar('ovBorrarFijo');
+    try{ await setDoc(doc(db,'fijos','cancha'+c),{data:D.fijos[c]}); await setDoc(doc(db,'ausentes','cancha'+c),{data:D.ausentes[c]}); await setDoc(doc(db,'asistencias','cancha'+c),{data:D.asistencias[c]}); await setDoc(doc(db,'config','clientes'),{data:D.clientes||{}}); setSynced(true); toast('Fijo eliminado'); } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+    pintarGrilla();
+  };
+  abrir('ovBorrarFijo');
+};
+
+// Asistencia
+window.toggleAsi=async function(dia,hora){
+  var c=D.cancha;
+  if(!D.asistencias[c]) D.asistencias[c]={};
+  if(!D.asistencias[c][dia]) D.asistencias[c][dia]={};
+  if(D.asistencias[c][dia][hora]) delete D.asistencias[c][dia][hora];
+  else D.asistencias[c][dia][hora]=true;
+  try{ await setDoc(doc(db,'asistencias','cancha'+c),{data:D.asistencias[c]}); setSynced(true); } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+  pintarGrilla();
+};
+
+// Cierre del día
+window.abrirCierreDia=function(){
+  var hoyStr=hoy(),total=0;
+  [1,2].forEach(function(c){ var asi=D.asistencias[c]||{}; if(asi[hoyStr]) Object.keys(asi[hoyStr]).forEach(function(h){ if(asi[hoyStr][h]) total++; }); });
+  document.getElementById('tituloCaja').textContent='Cierre del día — '+fmtF(hoyStr);
+  document.getElementById('cFecha').value=hoyStr;
+  document.getElementById('cTurnos').value=total;
+  document.getElementById('cGaseosa').value='';
+  document.getElementById('cZulma').value='';
+  document.getElementById('cVentas').value='';
+  actualizarLabelsCaja(); calcCaja(); abrir('ovCaja');
+};
+
+// ── CAJA ──────────────────────────────────────────────────
+function actualizarLabelsCaja(){
+  var cfg=D.config;
+  document.getElementById('lblGas').textContent=cfg.precioGaseosa?'('+fmt(cfg.precioGaseosa)+'/u)':'';
+  document.getElementById('lblZul').textContent=cfg.precioZulma?'('+fmt(cfg.precioZulma)+'/hr)':'';
+  var emp=cfg.empleada||'Empleada';
+  document.getElementById('lblHorasEmp').innerHTML='Horas '+emp+' <span id="lblZul" style="color:var(--amarillo);text-transform:none;font-size:10px">'+(cfg.precioZulma?'('+fmt(cfg.precioZulma)+'/hr)':'')+'</span>';
+  document.getElementById('lblDesEmp').textContent='− '+emp.toUpperCase();
+}
+function calcCaja(){
+  var cfg=D.config,t=parseFloat(document.getElementById('cTurnos').value)||0,g=parseFloat(document.getElementById('cGaseosa').value)||0,z=parseFloat(document.getElementById('cZulma').value)||0;
+  var ing=t*cfg.precioTurno,dg=g*cfg.precioGaseosa,dz=z*cfg.precioZulma;
+  document.getElementById('cSubIng').textContent=fmt(ing);
+  document.getElementById('cSubGas').textContent=fmt(dg);
+  document.getElementById('cSubZul').textContent=fmt(dz);
+  document.getElementById('cTotal').textContent=fmt(ing-dg-dz);
+}
+window.abrirCaja=function(){
+  document.getElementById('tituloCaja').textContent='Registrar día';
+  document.getElementById('cFecha').value=hoy();
+  document.getElementById('cTurnos').value='';
+  document.getElementById('cGaseosa').value='';
+  document.getElementById('cZulma').value='';
+  document.getElementById('cVentas').value='';
+  actualizarLabelsCaja(); calcCaja(); abrir('ovCaja');
+};
+window.guardarCaja=async function(){
+  var cfg=D.config,fecha=document.getElementById('cFecha').value,t=parseFloat(document.getElementById('cTurnos').value)||0,g=parseFloat(document.getElementById('cGaseosa').value)||0,z=parseFloat(document.getElementById('cZulma').value)||0,v=parseFloat(document.getElementById('cVentas').value)||0;
+  if(!fecha) return;
+  var ing=t*cfg.precioTurno,dg=g*cfg.precioGaseosa,dz=z*cfg.precioZulma,total=ing-dg-dz;
+  var reg={fecha,turnos:t,precioTurno:cfg.precioTurno,cantGaseosa:g,precioGaseosa:cfg.precioGaseosa,horasZulma:z,precioZulma:cfg.precioZulma,desGas:dg,desZul:dz,ventas:v,total};
+  setBusy('btnGuardarCaja',true);
+  try{
+    var mk=mkMes(fecha),ref=await addDoc(collection(db,'caja'),{mesKey:mk,...reg});
+    D.caja[mk]=D.caja[mk]||[]; D.caja[mk].push({id:ref.id,...reg});
+    cerrar('ovCaja'); sincSelects(); document.getElementById('selCaja').value=mk;
+    setSynced(true); toast('Caja guardada ✓'); pintarCaja();
+  } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+  setBusy('btnGuardarCaja',false);
+};
+function pintarCaja(){
+  var mk=document.getElementById('selCaja').value,datos=(D.caja[mk]||[]).slice().sort(function(a,b){ return a.fecha.localeCompare(b.fecha); });
+  document.getElementById('badgeCaja').textContent=datos.length+' días';
+  var tT=datos.reduce(function(s,d){ return s+d.total; },0),tTu=datos.reduce(function(s,d){ return s+d.turnos; },0),avg=datos.length?Math.round(tT/datos.length):0,max=datos.length?Math.max.apply(null,datos.map(function(d){ return d.total; })):0;
+  document.getElementById('statsCaja').innerHTML=stat('Total del mes',fmt(tT),'c-verde')+stat('Turnos',tTu,'')+stat('Promedio / día',fmt(avg),'')+stat('Mejor día',fmt(max),'c-amarillo');
+  var emp=D.config.empleada||'Empleada';
+  document.getElementById('thGas').textContent='− Gaseosas';
+  document.getElementById('thZul').textContent='− '+emp;
+  if(!datos.length){ document.getElementById('bodyCaja').innerHTML='<tr><td colspan="6"><div class="empty"><div class="empty-icon">📋</div>Sin registros</div></td></tr>'; return; }
+  var rows=datos.map(function(d){ var gL=d.cantGaseosa?d.cantGaseosa+'×'+fmt(d.precioGaseosa):fmt(d.desGas||0),zL=d.horasZulma?d.horasZulma+'hr×'+fmt(d.precioZulma):fmt(d.desZul||0); return '<tr><td class="mono">'+fmtF(d.fecha)+'</td><td class="mono" style="text-align:center">'+d.turnos+'</td><td class="mono c-rojo" style="font-size:12px">'+gL+'</td><td class="mono c-rojo" style="font-size:12px">'+zL+'</td><td class="mono c-verde" style="font-weight:600">'+fmt(d.total)+'</td><td><button class="btn btn-danger btn-sm" onclick="borrarCaja(\''+d.id+'\',\''+mkMes(d.fecha)+'\')">× Borrar</button></td></tr>'; });
+  rows.push('<tr class="tbl-total"><td colspan="4" style="text-align:right;font-size:11px;color:var(--gris-texto)">TOTAL MES</td><td>'+fmt(tT)+'</td><td></td></tr>');
+  document.getElementById('bodyCaja').innerHTML=rows.join('');
+}
+window.borrarCaja=async function(id,mk){ try{ await deleteDoc(doc(db,'caja',id)); D.caja[mk]=(D.caja[mk]||[]).filter(function(d){ return d.id!==id; }); setSynced(true); toast('Eliminado'); pintarCaja(); } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); } };
+
+// ── GASTOS ─────────────────────────────────────────────────
+window.abrirGasto=function(){ document.getElementById('gFecha').value=hoy(); document.getElementById('gDesc').value=''; document.getElementById('gMonto').value=''; abrir('ovGasto'); };
+window.guardarGasto=async function(){
+  var fecha=document.getElementById('gFecha').value,desc=document.getElementById('gDesc').value.trim(),monto=parseFloat(document.getElementById('gMonto').value)||0;
+  if(!fecha||!desc) return;
+  setBusy('btnGuardarGasto',true);
+  try{ var mk=mkMes(fecha),ref=await addDoc(collection(db,'gastos'),{mesKey:mk,fecha,desc,monto}); D.gastos[mk]=D.gastos[mk]||[]; D.gastos[mk].push({id:ref.id,fecha,desc,monto}); cerrar('ovGasto'); sincSelects(); document.getElementById('selGastos').value=mk; setSynced(true); toast('Gasto guardado ✓'); pintarGastos(); } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+  setBusy('btnGuardarGasto',false);
+};
+function pintarGastos(){
+  var mk=document.getElementById('selGastos').value,datos=(D.gastos[mk]||[]).slice().sort(function(a,b){ return a.fecha.localeCompare(b.fecha); });
+  document.getElementById('totalGastos').textContent=fmt(datos.reduce(function(s,d){ return s+d.monto; },0));
+  if(!datos.length){ document.getElementById('bodyGastos').innerHTML='<tr><td colspan="4"><div class="empty"><div class="empty-icon">📋</div>Sin gastos</div></td></tr>'; return; }
+  document.getElementById('bodyGastos').innerHTML=datos.map(function(d){ return '<tr><td class="mono">'+fmtF(d.fecha)+'</td><td>'+d.desc+'</td><td class="mono c-rojo">'+fmt(d.monto)+'</td><td><button class="btn btn-danger btn-sm" onclick="borrarGasto(\''+d.id+'\',\''+mk+'\')">× Borrar</button></td></tr>'; }).join('');
+}
+window.borrarGasto=async function(id,mk){ try{ await deleteDoc(doc(db,'gastos',id)); D.gastos[mk]=(D.gastos[mk]||[]).filter(function(d){ return d.id!==id; }); setSynced(true); toast('Eliminado'); pintarGastos(); } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); } };
+
+// ── SOCIOS ─────────────────────────────────────────────────
+window.abrirRetiro=function(){
+  var cfg=D.config;
+  document.getElementById('lblS1').textContent=cfg.socio1||'Socio 1';
+  document.getElementById('lblS2').textContent=cfg.socio2||'Socio 2';
+  document.getElementById('rFecha').value=hoy(); document.getElementById('rFer').value=''; document.getElementById('rPapa').value=''; abrir('ovRetiro');
+};
+window.guardarRetiro=async function(){
+  var fecha=document.getElementById('rFecha').value,fer=parseFloat(document.getElementById('rFer').value)||0,papa=parseFloat(document.getElementById('rPapa').value)||0;
+  if(!fecha) return;
+  setBusy('btnGuardarRetiro',true);
+  try{ var mk=mkMes(fecha),ref=await addDoc(collection(db,'retiros'),{mesKey:mk,fecha,fer,papa}); D.retiros[mk]=D.retiros[mk]||[]; D.retiros[mk].push({id:ref.id,fecha,fer,papa}); cerrar('ovRetiro'); sincSelects(); document.getElementById('selSocios').value=mk; setSynced(true); toast('Retiro guardado ✓'); pintarSocios(); } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+  setBusy('btnGuardarRetiro',false);
+};
+function pintarSocios(){
+  var mk=document.getElementById('selSocios').value,datos=(D.retiros[mk]||[]).slice().sort(function(a,b){ return a.fecha.localeCompare(b.fecha); });
+  var tF=datos.reduce(function(s,d){ return s+d.fer; },0),tP=datos.reduce(function(s,d){ return s+d.papa; },0);
+  var s1=D.config.socio1||'Socio 1',s2=D.config.socio2||'Socio 2';
+  function tarjeta(nombre,key,total,color){ var items=datos.filter(function(d){ return d[key]; }).map(function(d){ return '<div class="retiro-item"><span class="mono" style="font-size:12px">'+fmtF(d.fecha)+'</span><span class="mono" style="color:'+color+'">'+fmt(d[key])+'</span></div>'; }).join(''); return '<div class="socio-card"><div class="socio-nombre" style="color:'+color+'">'+nombre+'</div><div style="font-size:10px;color:var(--gris-texto);font-family:\'DM Mono\',monospace;margin-bottom:2px">RETIROS DEL MES</div><div class="socio-total" style="color:'+color+'">'+fmt(total)+'</div>'+(items||'<div style="color:var(--gris-texto);font-size:12px;padding:6px 0">Sin retiros</div>')+'</div>'; }
+  document.getElementById('gridSocios').innerHTML=tarjeta(s1,'fer',tF,'#40c4ff')+tarjeta(s2,'papa',tP,'#ffd600');
+}
+
+// ── RESUMEN ────────────────────────────────────────────────
+function pintarResumen(){
+  var mk=document.getElementById('selResumen').value,caja=D.caja[mk]||[],gst=D.gastos[mk]||[],ret=D.retiros[mk]||[];
+  var tI=caja.reduce(function(s,d){ return s+d.total; },0),tG=gst.reduce(function(s,d){ return s+d.monto; },0);
+  var tF=ret.reduce(function(s,d){ return s+d.fer; },0),tP=ret.reduce(function(s,d){ return s+d.papa; },0),tR=tF+tP,saldo=tI-tG-tR;
+  var pp=mk.split('-'),mesNom=MESES[parseInt(pp[1])-1]+' '+pp[0];
+  var s1=D.config.socio1||'Socio 1',s2=D.config.socio2||'Socio 2';
+  document.getElementById('statsResumen').innerHTML=stat('Ingresos',fmt(tI),'c-verde')+stat('Gastos',fmt(tG),'c-rojo')+stat('Retiros socios',fmt(tR),'c-amarillo')+stat('Saldo neto',fmt(saldo),saldo>=0?'c-verde':'c-rojo');
+  document.getElementById('resIng').innerHTML='<div style="margin-bottom:8px;color:var(--gris-texto);font-size:11px;font-family:\'DM Mono\',monospace">'+mesNom+'</div><div class="retiro-item"><span>Días trabajados</span><span class="mono">'+caja.length+'</span></div><div class="retiro-item"><span>Total turnos</span><span class="mono">'+caja.reduce(function(s,d){ return s+d.turnos; },0)+'</span></div><div class="retiro-item" style="margin-top:4px"><span style="font-weight:600">TOTAL CAJA</span><span class="mono c-verde" style="font-size:16px">'+fmt(tI)+'</span></div>';
+  var gI=gst.slice(0,6).map(function(g){ return '<div class="retiro-item"><span style="font-size:12px">'+g.desc+'</span><span class="mono c-rojo">'+fmt(g.monto)+'</span></div>'; }).join('');
+  if(gst.length>6) gI+='<div style="color:var(--gris-texto);font-size:11px;padding:3px 0">+'+(gst.length-6)+' más...</div>';
+  document.getElementById('resEg').innerHTML='<div style="margin-bottom:8px;color:var(--gris-texto);font-size:11px;font-family:\'DM Mono\',monospace">'+mesNom+'</div>'+gI+'<div class="retiro-item"><span>Retiro '+s1+'</span><span class="mono c-azul">'+fmt(tF)+'</span></div><div class="retiro-item"><span>Retiro '+s2+'</span><span class="mono c-amarillo">'+fmt(tP)+'</span></div><div class="retiro-item" style="margin-top:4px"><span style="font-weight:600">TOTAL EGRESOS</span><span class="mono c-rojo" style="font-size:16px">'+fmt(tG+tR)+'</span></div>';
+}
+
+// ── CONFIG ─────────────────────────────────────────────────
+function pintarConfig(){
+  var cfg=D.config;
+  document.getElementById('cfgNombreComplejo').value=cfg.nombreComplejo||'';
+  document.getElementById('cfgSocio1').value=cfg.socio1||'';
+  document.getElementById('cfgSocio2').value=cfg.socio2||'';
+  document.getElementById('cfgEmpleada').value=cfg.empleada||'';
+  document.getElementById('cfgPrecioTurno').value=cfg.precioTurno||'';
+  document.getElementById('cfgPrecioGaseosa').value=cfg.precioGaseosa||'';
+  document.getElementById('cfgPrecioZulma').value=cfg.precioZulma||'';
+  var logo=localStorage.getItem('canchas_logo');
+  if(logo){ document.getElementById('cfgLogoPreview').src=logo; document.getElementById('cfgLogoPreview').style.display='block'; document.getElementById('cfgLogoTxt').style.display='none'; }
+  pintarUsuarios();
+}
+
+window.guardarConfig=async function(){
+  D.config.nombreComplejo=document.getElementById('cfgNombreComplejo').value.trim()||'Canchas Al Toque';
+  D.config.socio1=document.getElementById('cfgSocio1').value.trim()||'Socio 1';
+  D.config.socio2=document.getElementById('cfgSocio2').value.trim()||'Socio 2';
+  D.config.empleada=document.getElementById('cfgEmpleada').value.trim()||'Empleada';
+  D.config.precioTurno=parseFloat(document.getElementById('cfgPrecioTurno').value)||0;
+  D.config.precioGaseosa=parseFloat(document.getElementById('cfgPrecioGaseosa').value)||0;
+  D.config.precioZulma=parseFloat(document.getElementById('cfgPrecioZulma').value)||0;
+  setBusy('btnGuardarConfig',true);
+  try{
+    await setDoc(doc(db,'config','precios'),D.config);
+    aplicarConfig(); setSynced(true); toast('Configuración guardada ✓');
+    var msg=document.getElementById('cfgMsg'); msg.style.display='block'; setTimeout(function(){ msg.style.display='none'; },2500);
+  } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+  setBusy('btnGuardarConfig',false);
+};
+
+function aplicarConfig(){
+  var cfg=D.config;
+  document.getElementById('headerNombre').innerHTML=cfg.nombreComplejo+'<span>.</span>';
+  document.title=cfg.nombreComplejo;
+  document.getElementById('loginSubtitle').textContent=cfg.nombreComplejo+' — Iniciá sesión';
+}
+
+// Logo
+window.subirLogo=function(event){
+  var file=event.target.files[0]; if(!file) return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var data=e.target.result;
+    localStorage.setItem('canchas_logo',data);
+    var img=document.getElementById('logoImg'),ph=document.getElementById('logoBtn');
+    img.src=data; img.style.display='block'; ph.style.display='none';
+    document.getElementById('cfgLogoPreview').src=data;
+    document.getElementById('cfgLogoPreview').style.display='block';
+    document.getElementById('cfgLogoTxt').style.display='none';
+    toast('Logo actualizado ✓');
+  };
+  reader.readAsDataURL(file);
+};
+
+// ── USUARIOS ───────────────────────────────────────────────
+function pintarUsuarios(){
+  var lista=document.getElementById('listaUsuarios'); if(!lista) return;
+  var keys=Object.keys(D.usuarios||{});
+  if(!keys.length){ lista.innerHTML='<div style="color:var(--gris-texto);font-size:13px;padding:8px 0">Sin usuarios creados aún.</div>'; return; }
+  lista.innerHTML=keys.map(function(k){ var u=D.usuarios[k]; return '<div class="usuario-item"><div class="usuario-info"><div class="usuario-avatar">'+u.usuario[0].toUpperCase()+'</div><div><div class="usuario-nombre">'+u.usuario+'</div><div class="usuario-rol">Usuario</div></div></div>'+(sesion.esAdmin?'<button class="btn btn-danger btn-sm" onclick="borrarUsuario(\''+k+'\')">× Borrar</button>':'')+'</div>'; }).join('');
+}
+
+window.cambiarPassAdmin=async function(){
+  if(!sesion.esAdmin){ toast('Solo el admin puede hacer esto','err'); return; }
+  var np=document.getElementById('cfgAdminPass').value;
+  if(!np||np.length<4){ toast('La contraseña debe tener al menos 4 caracteres','err'); return; }
+  D.config.adminPass=np;
+  setBusy('btnCambiarPassAdmin',true);
+  try{ await setDoc(doc(db,'config','precios'),D.config); setSynced(true); toast('Contraseña admin actualizada ✓'); document.getElementById('cfgAdminPass').value=''; } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+  setBusy('btnCambiarPassAdmin',false);
+};
+
+window.crearUsuario=async function(){
+  if(!sesion.esAdmin){ toast('Solo el admin puede crear usuarios','err'); return; }
+  var user=document.getElementById('nuevoUser').value.trim().toLowerCase();
+  var pass=document.getElementById('nuevoPass').value;
+  if(!user||!pass){ toast('Completá usuario y contraseña','err'); return; }
+  if(user==='admin'){ toast('El usuario "admin" está reservado','err'); return; }
+  if(pass.length<4){ toast('La contraseña debe tener al menos 4 caracteres','err'); return; }
+  // chequear duplicado
+  var existe=Object.values(D.usuarios||{}).some(function(u){ return u.usuario===user; });
+  if(existe){ toast('Ya existe un usuario con ese nombre','err'); return; }
+  setBusy('btnCrearUsuario',true);
+  try{
+    var id='u_'+Date.now();
+    if(!D.usuarios) D.usuarios={};
+    D.usuarios[id]={ usuario:user, pass:pass };
+    await setDoc(doc(db,'config','usuarios'),{data:D.usuarios});
+    document.getElementById('nuevoUser').value='';
+    document.getElementById('nuevoPass').value='';
+    setSynced(true); toast('Usuario "'+user+'" creado ✓');
+    pintarUsuarios();
+  } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+  setBusy('btnCrearUsuario',false);
+};
+
+window.borrarUsuario=async function(id){
+  if(!sesion.esAdmin){ toast('Solo el admin puede borrar usuarios','err'); return; }
+  if(!D.usuarios||!D.usuarios[id]) return;
+  var nombre=D.usuarios[id].usuario;
+  delete D.usuarios[id];
+  try{ await setDoc(doc(db,'config','usuarios'),{data:D.usuarios}); setSynced(true); toast('Usuario "'+nombre+'" eliminado'); pintarUsuarios(); } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+};
+
+
+// ── CLIENTES ──────────────────────────────────────────────
+function pintarClientes(){
+  var clientes=D.clientes||{};
+  var buscar=(document.getElementById('buscarCliente').value||'').toLowerCase();
+  var lista=Object.entries(clientes).filter(function(e){
+    var c=e[1];
+    return !buscar || c.nombre.toLowerCase().includes(buscar) || (c.telefono||'').includes(buscar);
+  });
+  var diasNombres=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+  document.getElementById('badgeClientes').textContent=Object.keys(clientes).length+' clientes';
+  if(!lista.length){
+    document.getElementById('bodyClientes').innerHTML='<tr><td colspan="5"><div class="empty"><div class="empty-icon">📱</div>'+(buscar?'Sin resultados':'Sin clientes registrados aún.<br><span style="font-size:12px">Se agregan al crear un turno fijo con teléfono.</span>')+'</div></td></tr>';
+    return;
+  }
+  lista.sort(function(a,b){ return a[1].nombre.localeCompare(b[1].nombre); });
+  document.getElementById('bodyClientes').innerHTML=lista.map(function(e){
+    var id=e[0],c=e[1];
+    var dia=diasNombres[c.diaSem]||'-';
+    var waLink=c.telefono?'<a href="https://wa.me/549'+c.telefono.replace(/\D/g,'')+'" target="_blank" style="color:var(--verde);text-decoration:none;font-size:12px">📲 WhatsApp</a>':'-';
+    return '<tr>'
+      +'<td style="font-weight:500">'+esc(c.nombre)+'</td>'
+      +'<td class="mono" style="font-size:13px">'+(c.telefono||'<span style="color:var(--gris-texto)">Sin teléfono</span>')+'</td>'
+      +'<td><span style="background:rgba(0,230,118,0.1);color:var(--verde);border-radius:4px;padding:2px 8px;font-size:11px;font-family:monospace">Cancha '+c.cancha+'</span></td>'
+      +'<td style="font-size:12px;color:var(--gris-texto)">'+dia+' '+c.hora+'</td>'
+      +'<td><div style="display:flex;gap:6px;align-items:center">'+waLink+'<button class="btn btn-ghost btn-sm" onclick="editarCliente(\"'+id+'\")">✏️ Editar</button><button class="btn btn-danger btn-sm" onclick="borrarCliente(\"'+id+'\")">× Borrar</button></div></td>'
+      +'</tr>';
+  }).join('');
+}
+
+window.borrarCliente=async function(id){
+  if(!D.clientes||!D.clientes[id]) return;
+  var nombre=D.clientes[id].nombre;
+  delete D.clientes[id];
+  try{
+    await setDoc(doc(db,'config','clientes'),{data:D.clientes});
+    setSynced(true); toast('Cliente "'+nombre+'" eliminado');
+    pintarClientes();
+  } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+};
+
+
+// ── HOY ────────────────────────────────────────────────────
+function pintarHoy(){
+  var hoyStr=hoy();
+  var pp=hoyStr.split('-');
+  var ds=dSem(hoyStr);
+  var diasNombres=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+  document.getElementById('hoyTitulo').textContent=diasNombres[ds]+' '+pp[2]+'/'+pp[1]+'/'+pp[0];
+  document.getElementById('hoySubtitulo').textContent='Turnos del día — ambas canchas';
+
+  var html='';
+  [1,2].forEach(function(c){
+    var fij=D.fijos[c]||{}, ev=D.eventuales[c]||{}, aus=D.ausentes[c]||{}, asi=D.asistencias[c]||{};
+    html+='<div class="card"><div class="card-title">Cancha '+c+'</div>';
+    html+='<table class="tbl"><thead><tr><th>Hora</th><th>Turno</th><th>Estado</th></tr></thead><tbody>';
+    var hayAlgo=false;
+    HORAS.forEach(function(hora){
+      var nFijo=(fij[ds]||{})[hora];
+      var ausData=aus[hoyStr]&&aus[hoyStr][hora];
+      var nEv=(ev[hoyStr]||{})[hora];
+      var asistio=!!(asi[hoyStr]&&asi[hoyStr][hora]);
+      var nombre=null, tipo='', estadoHtml='';
+
+      if(nFijo){
+        if(ausData){
+          var reem=typeof ausData==='object'?ausData.reemplazo:'';
+          nombre=reem?reem+' (reemplaza a '+nFijo+')':nFijo;
+          tipo=reem?'<span style="color:var(--naranja);font-size:11px">↔ Reemplazo</span>':'<span style="color:var(--amarillo);font-size:11px">⚠ Ausente</span>';
+        } else {
+          nombre=nFijo; tipo='<span style="color:var(--verde);font-size:11px">★ Fijo</span>';
+        }
+      } else if(nEv){
+        nombre=nEv; tipo='<span style="color:rgba(0,230,118,0.7);font-size:11px">Eventual</span>';
+      }
+
+      if(nombre){
+        hayAlgo=true;
+        if(asistio) estadoHtml='<span style="background:rgba(0,230,118,0.15);color:var(--verde);border-radius:4px;padding:2px 8px;font-size:11px">✓ Asistió</span>';
+        else if(ausData&&!(typeof ausData==='object'&&ausData.reemplazo)) estadoHtml='<span style="background:rgba(255,214,0,0.1);color:var(--amarillo);border-radius:4px;padding:2px 8px;font-size:11px">No viene</span>';
+        else estadoHtml='<span style="background:rgba(255,255,255,0.05);color:var(--gris-texto);border-radius:4px;padding:2px 8px;font-size:11px">Pendiente</span>';
+        html+='<tr><td class="mono" style="font-size:12px;color:var(--verde)">'+hora+'</td><td><div style="font-weight:500;font-size:13px">'+esc(nombre)+'</div><div style="margin-top:2px">'+tipo+'</div></td><td>'+estadoHtml+'</td></tr>';
+      }
+    });
+    if(!hayAlgo) html+='<tr><td colspan="3"><div class="empty" style="padding:20px"><div class="empty-icon">📋</div>Sin turnos</div></td></tr>';
+    html+='</tbody></table></div>';
+  });
+  document.getElementById('hoyGrid').innerHTML=html;
+}
+
+// ── EDITAR CLIENTE ──────────────────────────────────────────
+var _editClienteId=null;
+window.editarCliente=function(id){
+  var c=D.clientes[id]; if(!c) return;
+  _editClienteId=id;
+  document.getElementById('editNombre').value=c.nombre||'';
+  document.getElementById('editTelefono').value=c.telefono||'';
+  document.getElementById('editCancha').value=String(c.cancha||1);
+  document.getElementById('editDia').value=String(c.diaSem||0);
+  document.getElementById('editHora').value=c.hora||'13:00';
+  abrir('ovEditarCliente');
+  setTimeout(function(){ document.getElementById('editNombre').focus(); },80);
+};
+window.guardarEdicionCliente=async function(){
+  if(!_editClienteId) return;
+  var nombre=document.getElementById('editNombre').value.trim();
+  if(!nombre){ toast('El nombre es obligatorio','err'); return; }
+  setBusy('btnGuardarEditar',true);
+  D.clientes[_editClienteId]={
+    nombre:nombre,
+    telefono:document.getElementById('editTelefono').value.trim(),
+    cancha:parseInt(document.getElementById('editCancha').value),
+    diaSem:parseInt(document.getElementById('editDia').value),
+    hora:document.getElementById('editHora').value
+  };
+  try{
+    await setDoc(doc(db,'config','clientes'),{data:D.clientes});
+    cerrar('ovEditarCliente'); setSynced(true); toast('Cliente actualizado ✓');
+    pintarClientes();
+  } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+  setBusy('btnGuardarEditar',false);
+};
+
+// ── CIERRE CAJA CON ASISTENCIA ──────────────────────────────
+var _cierreTurnos=[];
+window.abrirCierreDia=function(){
+  var hoyStr=hoy(), ds=dSem(hoyStr);
+  var cfg=D.config;
+  document.getElementById('tituloCierreCaja').textContent='Cierre del día — '+fmtF(hoyStr);
+  document.getElementById('cierreGasLabel').textContent=cfg.precioGaseosa?'('+fmt(cfg.precioGaseosa)+'/u)':'';
+  document.getElementById('cierreZulLabel').textContent='− '+(cfg.empleada||'EMPLEADA').toUpperCase();
+  document.getElementById('cierreZulHorasLabel').textContent='Horas '+(cfg.empleada||'Empleada');
+  document.getElementById('cierreGaseosa').value='';
+  document.getElementById('cierreZulma').value='';
+
+  // Recopilar todos los turnos del día en ambas canchas
+  _cierreTurnos=[];
+  [1,2].forEach(function(c){
+    var fij=D.fijos[c]||{}, ev=D.eventuales[c]||{}, aus=D.ausentes[c]||{}, asi=D.asistencias[c]||{};
+    HORAS.forEach(function(hora){
+      var nFijo=(fij[ds]||{})[hora];
+      var ausData=aus[hoyStr]&&aus[hoyStr][hora];
+      var nEv=(ev[hoyStr]||{})[hora];
+      var nombre=null, tipo='';
+      if(nFijo){
+        if(ausData){
+          var reem=typeof ausData==='object'?ausData.reemplazo:'';
+          if(reem){ nombre=reem; tipo='Reemplazo (C'+c+' '+hora+')'; }
+          else return; // ausente sin reemplazo, no cuenta
+        } else { nombre=nFijo; tipo='Fijo (C'+c+' '+hora+')'; }
+      } else if(nEv){ nombre=nEv; tipo='Eventual (C'+c+' '+hora+')'; }
+      if(nombre){
+        _cierreTurnos.push({ nombre:nombre, tipo:tipo, cancha:c, hora:hora, asistio:!!(asi[hoyStr]&&asi[hoyStr][hora]) });
+      }
+    });
+  });
+
+  renderCierreTurnos();
+  calcCierre();
+  abrir('ovCierreCaja');
+};
+
+function renderCierreTurnos(){
+  var html=_cierreTurnos.map(function(t,i){
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--negro);border-radius:8px;margin-bottom:6px;border:1px solid '+(t.asistio?'rgba(0,230,118,0.3)':'var(--gris-borde)')+'">'
+      +'<input type="checkbox" '+(t.asistio?'checked':'')+' onchange="toggleCierre('+i+')" style="width:16px;height:16px;accent-color:var(--verde);cursor:pointer;flex-shrink:0">'
+      +'<div style="flex:1"><div style="font-size:13px;font-weight:500">'+esc(t.nombre)+'</div>'
+      +'<div style="font-size:11px;color:var(--gris-texto);font-family:monospace">'+t.tipo+'</div></div>'
+      +'<span style="font-size:11px;'+(t.asistio?'color:var(--verde)':'color:var(--gris-texto)')+'">'+(t.asistio?'✓ Asistió':'—')+'</span>'
+      +'</div>';
+  }).join('');
+  if(!html) html='<div class="empty"><div class="empty-icon">📋</div>No hay turnos cargados para hoy</div>';
+  document.getElementById('listaCierreTurnos').innerHTML=html;
+}
+
+window.toggleCierre=function(i){
+  _cierreTurnos[i].asistio=!_cierreTurnos[i].asistio;
+  renderCierreTurnos();
+  calcCierre();
+};
+
+function calcCierre(){
+  var cfg=D.config;
+  var asistidos=_cierreTurnos.filter(function(t){ return t.asistio; }).length;
+  var g=parseFloat(document.getElementById('cierreGaseosa').value)||0;
+  var z=parseFloat(document.getElementById('cierreZulma').value)||0;
+  var ing=asistidos*cfg.precioTurno, dg=g*cfg.precioGaseosa, dz=z*cfg.precioZulma;
+  document.getElementById('cierreAsistidos').textContent=asistidos;
+  document.getElementById('cierreSubGas').textContent=fmt(dg);
+  document.getElementById('cierreSubZul').textContent=fmt(dz);
+  document.getElementById('cierreTotal').textContent=fmt(ing-dg-dz);
+}
+window.calcCierre=calcCierre;
+
+window.guardarCierre=async function(){
+  var cfg=D.config, hoyStr=hoy();
+  var asistidos=_cierreTurnos.filter(function(t){ return t.asistio; }).length;
+  var g=parseFloat(document.getElementById('cierreGaseosa').value)||0;
+  var z=parseFloat(document.getElementById('cierreZulma').value)||0;
+  var ing=asistidos*cfg.precioTurno, dg=g*cfg.precioGaseosa, dz=z*cfg.precioZulma, total=ing-dg-dz;
+
+  // Guardar asistencias en Firebase
+  var promesas=[];
+  [1,2].forEach(function(c){
+    var changed=false;
+    if(!D.asistencias[c]) D.asistencias[c]={};
+    if(!D.asistencias[c][hoyStr]) D.asistencias[c][hoyStr]={};
+    _cierreTurnos.forEach(function(t){
+      if(t.cancha===c){
+        if(t.asistio) D.asistencias[c][hoyStr][t.hora]=true;
+        else delete D.asistencias[c][hoyStr][t.hora];
+        changed=true;
+      }
+    });
+    if(changed) promesas.push(setDoc(doc(db,'asistencias','cancha'+c),{data:D.asistencias[c]}));
+  });
+
+  var reg={fecha:hoyStr,turnos:asistidos,precioTurno:cfg.precioTurno,cantGaseosa:g,precioGaseosa:cfg.precioGaseosa,horasZulma:z,precioZulma:cfg.precioZulma,desGas:dg,desZul:dz,ventas:0,total:total};
+  setBusy('btnGuardarCierre',true);
+  try{
+    await Promise.all(promesas);
+    var mk=mkMes(hoyStr), ref=await addDoc(collection(db,'caja'),{mesKey:mk,...reg});
+    D.caja[mk]=D.caja[mk]||[]; D.caja[mk].push({id:ref.id,...reg});
+    sincSelects();
+    cerrar('ovCierreCaja'); setSynced(true); toast('Caja del día guardada ✓');
+    pintarGrilla();
+  } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+  setBusy('btnGuardarCierre',false);
+};
+
+// ── SELECTS MES ────────────────────────────────────────────
+function sincSelects(){
+  var keys={}; keys[mkHoy()]=1;
+  [D.caja,D.gastos,D.retiros].forEach(function(obj){ Object.keys(obj).forEach(function(k){ keys[k]=1; }); });
+  var sorted=Object.keys(keys).sort().reverse();
+  ['selCaja','selGastos','selSocios','selResumen'].forEach(function(id){
+    var sel=document.getElementById(id),cur=sel.value||mkHoy();
+    sel.innerHTML=sorted.map(function(mk){ var pp=mk.split('-'); return '<option value="'+mk+'"'+(mk===cur?' selected':'')+'>'+MESES[parseInt(pp[1])-1]+' '+pp[0]+'</option>'; }).join('');
+  });
+}
+
+// ── CARGA INICIAL ──────────────────────────────────────────
+async function cargarTodo(){
+  try{
+    var cfgSnap=await getDoc(doc(db,'config','precios'));
+    if(cfgSnap.exists()) D.config={...D.config,...cfgSnap.data()};
+
+    var usrSnap=await getDoc(doc(db,'config','usuarios'));
+    if(usrSnap.exists()) D.usuarios=usrSnap.data().data||{};
+
+    var cliSnap=await getDoc(doc(db,'config','clientes'));
+    if(cliSnap.exists()) D.clientes=cliSnap.data().data||{};
+
+    for(var c=1;c<=2;c++){
+      var fijSnap=await getDoc(doc(db,'fijos','cancha'+c)); if(fijSnap.exists()) D.fijos[c]=fijSnap.data().data||{};
+      var evSnap=await getDoc(doc(db,'eventuales','cancha'+c)); if(evSnap.exists()) D.eventuales[c]=evSnap.data().data||{};
+      var ausSnap=await getDoc(doc(db,'ausentes','cancha'+c)); if(ausSnap.exists()) D.ausentes[c]=ausSnap.data().data||{};
+      var asiSnap=await getDoc(doc(db,'asistencias','cancha'+c)); if(asiSnap.exists()) D.asistencias[c]=asiSnap.data().data||{};
+    }
+
+    var cajaSnap=await getDocs(collection(db,'caja'));
+    cajaSnap.forEach(function(d){ var r={id:d.id,...d.data()},mk=r.mesKey; D.caja[mk]=D.caja[mk]||[]; D.caja[mk].push(r); });
+    var gastosSnap=await getDocs(collection(db,'gastos'));
+    gastosSnap.forEach(function(d){ var r={id:d.id,...d.data()},mk=r.mesKey; D.gastos[mk]=D.gastos[mk]||[]; D.gastos[mk].push(r); });
+    var retSnap=await getDocs(collection(db,'retiros'));
+    retSnap.forEach(function(d){ var r={id:d.id,...d.data()},mk=r.mesKey; D.retiros[mk]=D.retiros[mk]||[]; D.retiros[mk].push(r); });
+
+    setSynced(true);
+  } catch(e){
+    document.getElementById('loadingTxt').textContent='Error de conexión: '+e.message;
+    setSynced(false);
+    await new Promise(function(r){ setTimeout(r,2000); });
+  }
+
+  document.getElementById('loading').style.display='none';
+  aplicarConfig();
+  sincSelects();
+
+  // Logo local
+  var logo=localStorage.getItem('canchas_logo');
+  if(logo){ var img=document.getElementById('logoImg'); img.src=logo; img.style.display='block'; document.getElementById('logoBtn').style.display='none'; }
+
+  // Restaurar sesión o mostrar login
+  var sesGuard=localStorage.getItem('canchas_sesion');
+  var sesionOk=false;
+  if(sesGuard){
+    try{
+      var s=JSON.parse(sesGuard);
+      var valido=s.usuario==='admin'||Object.values(D.usuarios||{}).some(function(u){ return u.usuario===s.usuario; });
+      if(valido){
+        sesion=s;
+        document.getElementById('userAvatar').textContent=s.usuario[0].toUpperCase();
+        document.getElementById('userNameDisplay').textContent=s.usuario;
+        sesionOk=true;
+      }
+    } catch(e){}
+  }
+  if(!sesionOk) document.getElementById('loginScreen').classList.add('show');
+
+  pintarGrilla();
+
+  // Tiempo real
+  [1,2].forEach(function(c){
+    onSnapshot(doc(db,'fijos','cancha'+c),function(s){ if(s.exists()){ D.fijos[c]=s.data().data||{}; pintarGrilla(); }});
+    onSnapshot(doc(db,'eventuales','cancha'+c),function(s){ if(s.exists()){ D.eventuales[c]=s.data().data||{}; pintarGrilla(); }});
+    onSnapshot(doc(db,'ausentes','cancha'+c),function(s){ if(s.exists()){ D.ausentes[c]=s.data().data||{}; pintarGrilla(); }});
+    onSnapshot(doc(db,'asistencias','cancha'+c),function(s){ if(s.exists()){ D.asistencias[c]=s.data().data||{}; pintarGrilla(); }});
+  });
+}
+
+// INIT
+document.addEventListener('DOMContentLoaded', function(){
+  var ef = document.getElementById('elFecha');
+  if(ef) ef.textContent = new Date().toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
+  ['cTurnos','cGaseosa','cZulma'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.addEventListener('input', calcCaja);
+  });
+  cargarTodo();
+});
+</script>
+
+<!-- MODAL EDITAR CLIENTE -->
+<div class="overlay" id="ovEditarCliente">
+  <div class="modal">
+    <div class="modal-title">✏️ Editar cliente</div>
+    <div class="form-group"><label>Nombre</label><input type="text" id="editNombre" placeholder="Nombre"></div>
+    <div class="form-group"><label>Teléfono / WhatsApp</label><input type="tel" id="editTelefono" placeholder="Ej: 2614123456"></div>
+    <div class="form-group">
+      <label>Cancha</label>
+      <select id="editCancha">
+        <option value="1">Cancha 1</option>
+        <option value="2">Cancha 2</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Día de la semana</label>
+      <select id="editDia">
+        <option value="0">Lunes</option>
+        <option value="1">Martes</option>
+        <option value="2">Miércoles</option>
+        <option value="3">Jueves</option>
+        <option value="4">Viernes</option>
+        <option value="5">Sábado</option>
+        <option value="6">Domingo</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Hora</label>
+      <select id="editHora">
+        <option>13:00</option><option>14:00</option><option>15:00</option>
+        <option>16:00</option><option>17:00</option><option>18:00</option>
+        <option>19:00</option><option>20:00</option><option>21:00</option>
+        <option>22:00</option><option>23:00</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="cerrar('ovEditarCliente')">Cancelar</button>
+      <button class="btn btn-sm" id="btnGuardarEditar" onclick="guardarEdicionCliente()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CIERRE CAJA CON ASISTENCIA -->
+<div class="overlay" id="ovCierreCaja">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-title" id="tituloCierreCaja">Cierre del día</div>
+    <p style="font-size:12px;color:var(--gris-texto);margin-bottom:14px">Tildá los turnos que asistieron. El total se calcula automáticamente.</p>
+    <div id="listaCierreTurnos" style="max-height:300px;overflow-y:auto;margin-bottom:14px"></div>
+    <div style="background:var(--gris-fondo);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:var(--gris-texto);font-family:'DM Mono',monospace">TURNOS ASISTIDOS</span><span class="mono c-verde" id="cierreAsistidos">0</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:var(--gris-texto);font-family:'DM Mono',monospace">− GASEOSAS <span id="cierreGasLabel" style="color:var(--amarillo)"></span></span><span class="mono c-rojo" id="cierreSubGas">$0</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="font-size:11px;color:var(--gris-texto);font-family:'DM Mono',monospace" id="cierreZulLabel">− EMPLEADA</span><span class="mono c-rojo" id="cierreSubZul">$0</span></div>
+      <div style="border-top:1px solid var(--gris-borde);padding-top:10px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:var(--gris-texto);font-family:'DM Mono',monospace">TOTAL</span>
+        <span class="mono c-verde" id="cierreTotal" style="font-size:22px;font-weight:700">$0</span>
+      </div>
+    </div>
+    <div class="form-grid-2">
+      <div class="form-group" style="margin-bottom:0"><label>Cant. gaseosas</label><input type="number" id="cierreGaseosa" placeholder="0" min="0" oninput="calcCierre()"></div>
+      <div class="form-group" style="margin-bottom:0"><label id="cierreZulHorasLabel">Horas empleada</label><input type="number" id="cierreZulma" placeholder="0" step="0.5" min="0" oninput="calcCierre()"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="cerrar('ovCierreCaja')">Cancelar</button>
+      <button class="btn btn-sm" id="btnGuardarCierre" onclick="guardarCierre()">Guardar caja</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
