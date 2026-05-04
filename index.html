@@ -403,6 +403,86 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
     </div>
   </div>
 </div>
+
+<!-- BUFFET -->
+<div class="tab" id="tab-buffet">
+
+  <!-- STATS -->
+  <div class="stats" id="statsBuffet"></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+
+    <!-- VENTAS HOY -->
+    <div>
+      <div class="card">
+        <div class="card-title">🛒 Nueva venta
+          <span class="badge" id="ventaBadge">$0</span>
+        </div>
+        <div style="margin-bottom:12px">
+          <input type="text" id="buscarProductoVenta" placeholder="🔍 Buscar producto..." oninput="filtrarProductosVenta()" style="width:100%;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:9px 12px;font-size:13px;outline:none;transition:border-color 0.2s">
+        </div>
+        <div id="productosVentaLista" style="max-height:320px;overflow-y:auto;margin-bottom:14px"></div>
+        <div id="carritoSection" style="display:none">
+          <div style="border-top:1px solid var(--gris-borde);padding-top:12px;margin-bottom:12px">
+            <div style="font-size:11px;color:var(--gris-texto);font-family:monospace;margin-bottom:8px;text-transform:uppercase">Carrito</div>
+            <div id="carritoLista"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--gris-borde)">
+              <span style="font-size:13px;font-weight:600">Total</span>
+              <span class="mono c-verde" id="carritoTotal" style="font-size:18px;font-weight:700">$0</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Método de pago</label>
+            <select id="ventaMetodoPago">
+              <option value="efectivo">Efectivo</option>
+              <option value="mercadopago">Mercado Pago</option>
+              <option value="transferencia">Transferencia</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="limpiarCarrito()">🗑️ Limpiar</button>
+            <button class="btn btn-sm" id="btnConfirmarVenta" onclick="confirmarVenta()" style="flex:1">✓ Confirmar venta</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- VENTAS DEL DIA -->
+      <div class="card">
+        <div class="card-title">📅 Ventas del día <span class="badge" id="badgeVentasHoy"></span></div>
+        <div style="overflow-x:auto">
+          <table class="tbl">
+            <thead><tr><th>Hora</th><th>Productos</th><th>Pago</th><th>Total</th><th></th></tr></thead>
+            <tbody id="bodyVentasHoy"></tbody>
+          </table>
+        </div>
+        <div style="text-align:right;margin-top:10px">
+          <span style="font-size:11px;color:var(--gris-texto);font-family:monospace">TOTAL HOY: </span>
+          <span class="mono c-verde" id="totalVentasHoy" style="font-size:15px;font-weight:600">$0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- INVENTARIO -->
+    <div>
+      <div class="card">
+        <div class="card-title">📦 Inventario</div>
+        <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <input type="text" id="buscarProducto" placeholder="🔍 Buscar..." oninput="pintarInventario()" style="flex:1;min-width:140px;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:8px 12px;font-size:13px;outline:none">
+          <select id="filtroCategoria" onchange="pintarInventario()" style="background:var(--gris-fondo);border:1px solid var(--gris-borde);color:var(--blanco);padding:8px 12px;border-radius:8px;font-size:13px;outline:none;cursor:pointer">
+            <option value="">Todas</option>
+            <option value="bebidas">Bebidas</option>
+            <option value="comidas">Comidas</option>
+            <option value="snacks">Snacks</option>
+            <option value="otros">Otros</option>
+          </select>
+          <button class="btn btn-sm" onclick="abrirModalProducto(null)">+ Producto</button>
+        </div>
+        <div id="inventarioLista"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
 </main>
 
 <!-- MODALES -->
@@ -575,6 +655,7 @@ const TABS_DISPONIBLES=[
   {id:'socios',label:'👥 Socios'},
   {id:'resumen',label:'📊 Resumen'},
   {id:'clientes',label:'📱 Clientes'},
+  {id:'buffet',label:'🍔 Buffet'},
   {id:'config',label:'⚙️ Config'}
 ];
 
@@ -637,6 +718,7 @@ window.irA=function(tab,btn){
   if(tab==='resumen') pintarResumen();
   if(tab==='clientes')pintarClientes();
   if(tab==='config')  pintarConfig();
+  if(tab==='buffet')   pintarBuffet();
 };
 
 // ── LOGIN ─────────────────────────────────────
@@ -1483,6 +1565,285 @@ function pintarMensajes(){
   }).join('');
 }
 
+
+// ── BUFFET ────────────────────────────────────
+var carrito = {}; // {prodId: {nombre, precio, cantidad}}
+var _editProdId = null;
+var CATS = {bebidas:'🥤 Bebidas', comidas:'🍕 Comidas', snacks:'🍿 Snacks', otros:'📦 Otros'};
+
+function pintarBuffet(){
+  pintarInventario();
+  pintarProductosVenta();
+  pintarVentasHoy();
+  pintarStatsBuffet();
+}
+
+// STATS
+function pintarStatsBuffet(){
+  var hoyStr=hoy(), mk=mkMes(hoyStr);
+  var ventasHoy=(D.ventasBuffet[hoyStr]||[]);
+  var ventasMes=[];
+  Object.keys(D.ventasBuffet||{}).forEach(function(f){ if(mkMes(f)===mk) ventasMes=ventasMes.concat(D.ventasBuffet[f]||[]); });
+  var totalHoy=ventasHoy.reduce(function(s,v){return s+v.total;},0);
+  var totalMes=ventasMes.reduce(function(s,v){return s+v.total;},0);
+  var productos=Object.values(D.productos||{});
+  var stockBajo=productos.filter(function(p){return (p.stock||0)<=(p.stockMin||5);}).length;
+  var gananciaHoy=ventasHoy.reduce(function(s,v){return s+(v.ganancia||0);},0);
+  var el=document.getElementById('statsBuffet');
+  if(el) el.innerHTML=
+    stat('Ventas hoy',fmt(totalHoy),'c-verde')+
+    stat('Ventas del mes',fmt(totalMes),'')+
+    stat('Ganancia hoy',fmt(gananciaHoy),'c-amarillo')+
+    stat('Stock bajo',stockBajo,stockBajo>0?'c-rojo':'');
+}
+
+// INVENTARIO
+function pintarInventario(){
+  var buscar=(document.getElementById('buscarProducto')||{}).value||'';
+  buscar=buscar.toLowerCase();
+  var filtCat=(document.getElementById('filtroCategoria')||{}).value||'';
+  var productos=Object.entries(D.productos||{});
+  var filtrados=productos.filter(function(e){
+    var p=e[1];
+    var matchBuscar=!buscar||(p.nombre||'').toLowerCase().includes(buscar);
+    var matchCat=!filtCat||p.categoria===filtCat;
+    return matchBuscar&&matchCat;
+  });
+  filtrados.sort(function(a,b){return (a[1].nombre||'').localeCompare(b[1].nombre||'');});
+  var el=document.getElementById('inventarioLista');
+  if(!el)return;
+  if(!filtrados.length){el.innerHTML='<div class="empty"><div class="empty-icon">📦</div>Sin productos'+(buscar||filtCat?' que coincidan':'')+'</div>';return;}
+  el.innerHTML=filtrados.map(function(e){
+    var id=e[0],p=e[1];
+    var stockBajo=(p.stock||0)<=(p.stockMin||5);
+    var margen=p.costo>0?Math.round(((p.precio-p.costo)/p.costo)*100):0;
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--gris-fondo);border:1px solid '+(stockBajo?'rgba(255,68,68,0.4)':'var(--gris-borde)')+';border-radius:8px;margin-bottom:6px">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">'
+      +'<span style="font-size:13px;font-weight:600">'+esc(p.nombre)+'</span>'
+      +'<span style="font-size:10px;background:var(--gris-borde);border-radius:3px;padding:1px 6px;color:var(--gris-texto)">'+((CATS[p.categoria]||p.categoria||'').split(' ')[0])+'</span>'
+      +(stockBajo?'<span style="font-size:10px;background:rgba(255,68,68,0.15);color:var(--rojo);border-radius:3px;padding:1px 6px">⚠ Stock bajo</span>':'')
+      +'</div>'
+      +'<div style="display:flex;gap:12px;font-size:11px;color:var(--gris-texto);font-family:monospace;flex-wrap:wrap">'
+      +'<span>Costo: '+fmt(p.costo)+'</span>'
+      +'<span style="color:var(--verde)">Venta: '+fmt(p.precio)+'</span>'
+      +'<span style="color:var(--amarillo)">Margen: '+margen+'%</span>'
+      +'<span style="color:'+(stockBajo?'var(--rojo)':'var(--azul)')+'">Stock: '+(p.stock||0)+' u</span>'
+      +'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:6px;flex-shrink:0">'
+      +'<button class="btn btn-ghost btn-sm" onclick="abrirModalProducto(\"'+id+'\")">✏️</button>'
+      +'<button class="btn btn-danger btn-sm" onclick="borrarProducto(\"'+id+'\")">×</button>'
+      +'</div></div>';
+  }).join('');
+}
+
+// PRODUCTOS PARA VENTA
+function pintarProductosVenta(){
+  filtrarProductosVenta();
+}
+function filtrarProductosVenta(){
+  var buscar=((document.getElementById('buscarProductoVenta')||{}).value||'').toLowerCase();
+  var productos=Object.entries(D.productos||{}).filter(function(e){
+    return (!buscar||(e[1].nombre||'').toLowerCase().includes(buscar))&&(e[1].stock||0)>0;
+  });
+  productos.sort(function(a,b){return (a[1].nombre||'').localeCompare(b[1].nombre||'');});
+  var el=document.getElementById('productosVentaLista');
+  if(!el)return;
+  if(!productos.length){el.innerHTML='<div class="empty" style="padding:16px"><div class="empty-icon">📦</div>'+(buscar?'Sin resultados':'Sin productos con stock')+'</div>';return;}
+
+  // Agrupar por categoría
+  var grupos={};
+  productos.forEach(function(e){
+    var cat=e[1].categoria||'otros';
+    if(!grupos[cat])grupos[cat]=[];
+    grupos[cat].push(e);
+  });
+  var html='';
+  Object.keys(grupos).sort().forEach(function(cat){
+    html+='<div style="font-size:10px;color:var(--gris-texto);font-family:monospace;text-transform:uppercase;margin:8px 0 4px">'+((CATS[cat]||cat))+'</div>';
+    grupos[cat].forEach(function(e){
+      var id=e[0],p=e[1];
+      var enCarrito=carrito[id]?carrito[id].cantidad:0;
+      html+='<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--gris-fondo);border:1px solid '+(enCarrito?'rgba(0,230,118,0.4)':'var(--gris-borde)')+';border-radius:8px;margin-bottom:5px">'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:13px;font-weight:500">'+esc(p.nombre)+'</div>'
+        +'<div style="font-size:11px;color:var(--verde);font-family:monospace">'+fmt(p.precio)+' <span style="color:var(--gris-texto)">· Stock: '+(p.stock||0)+'</span></div>'
+        +'</div>'
+        +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
+        +(enCarrito>0?'<button onclick="cambiarCantidadCarrito(\"'+id+'\",-1)" style="background:var(--gris-borde);border:none;color:var(--blanco);width:26px;height:26px;border-radius:5px;cursor:pointer;font-size:14px">−</button>':'')
+        +(enCarrito>0?'<span style="font-family:monospace;font-size:13px;font-weight:600;min-width:20px;text-align:center">'+enCarrito+'</span>':'')
+        +'<button onclick="cambiarCantidadCarrito(\"'+id+'\",1)" style="background:var(--verde);border:none;color:var(--negro);width:26px;height:26px;border-radius:5px;cursor:pointer;font-size:14px;font-weight:600">+</button>'
+        +'</div></div>';
+    });
+  });
+  el.innerHTML=html;
+  actualizarCarrito();
+}
+
+// CARRITO
+window.cambiarCantidadCarrito=function(id,delta){
+  var p=D.productos[id];if(!p)return;
+  if(!carrito[id])carrito[id]={nombre:p.nombre,precio:p.precio,costo:p.costo||0,cantidad:0};
+  carrito[id].cantidad+=delta;
+  if(carrito[id].cantidad<=0)delete carrito[id];
+  filtrarProductosVenta();
+};
+
+function actualizarCarrito(){
+  var items=Object.entries(carrito);
+  var seccion=document.getElementById('carritoSection');
+  var badge=document.getElementById('ventaBadge');
+  if(!seccion)return;
+  if(!items.length){seccion.style.display='none';if(badge)badge.textContent='$0';return;}
+  seccion.style.display='block';
+  var total=items.reduce(function(s,e){return s+e[1].precio*e[1].cantidad;},0);
+  if(badge)badge.textContent=fmt(total);
+  var listaEl=document.getElementById('carritoLista');
+  if(listaEl){
+    listaEl.innerHTML=items.map(function(e){
+      var id=e[0],it=e[1];
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--gris-borde);font-size:13px">'
+        +'<span>'+esc(it.nombre)+' × '+it.cantidad+'</span>'
+        +'<span class="mono">'+fmt(it.precio*it.cantidad)+'</span>'
+        +'</div>';
+    }).join('');
+  }
+  var totEl=document.getElementById('carritoTotal');
+  if(totEl)totEl.textContent=fmt(total);
+}
+
+function limpiarCarrito(){carrito={};filtrarProductosVenta();}
+window.limpiarCarrito=limpiarCarrito;
+
+window.confirmarVenta=async function(){
+  var items=Object.entries(carrito);
+  if(!items.length){toast('El carrito está vacío','err');return;}
+  // Verificar stock
+  var sinStock=items.filter(function(e){return (D.productos[e[0]]&&D.productos[e[0]].stock||0)<e[1].cantidad;});
+  if(sinStock.length){toast('Sin stock suficiente para: '+sinStock.map(function(e){return e[1].nombre;}).join(', '),'err');return;}
+  setBusy('btnConfirmarVenta',true);
+  var metodo=(document.getElementById('ventaMetodoPago')||{}).value||'efectivo';
+  var total=items.reduce(function(s,e){return s+e[1].precio*e[1].cantidad;},0);
+  var ganancia=items.reduce(function(s,e){return s+(e[1].precio-e[1].costo)*e[1].cantidad;},0);
+  var ahora=new Date();
+  var hora=ahora.getHours().toString().padStart(2,'0')+':'+ahora.getMinutes().toString().padStart(2,'0');
+  var hoyStr=hoy();
+  var venta={hora,metodo,total,ganancia,items:items.map(function(e){return {id:e[0],nombre:e[1].nombre,precio:e[1].precio,cantidad:e[1].cantidad};})};
+  try{
+    // Descontar stock
+    items.forEach(function(e){if(D.productos[e[0]])D.productos[e[0]].stock=(D.productos[e[0]].stock||0)-e[1].cantidad;});
+    await setDoc(doc(db,'config','productos'),{data:D.productos});
+    // Guardar venta
+    if(!D.ventasBuffet[hoyStr])D.ventasBuffet[hoyStr]=[];
+    D.ventasBuffet[hoyStr].push(venta);
+    await setDoc(doc(db,'buffet',hoyStr),{ventas:D.ventasBuffet[hoyStr]});
+    carrito={};
+    setSynced(true);toast('Venta registrada ✓');
+    pintarBuffet();
+  }catch(e){toast('Error: '+e.message,'err');setSynced(false);}
+  setBusy('btnConfirmarVenta',false);
+};
+
+// VENTAS DEL DIA
+function pintarVentasHoy(){
+  var hoyStr=hoy();
+  var ventas=(D.ventasBuffet[hoyStr]||[]).slice().reverse();
+  var el=document.getElementById('bodyVentasHoy');
+  var badge=document.getElementById('badgeVentasHoy');
+  var totalEl=document.getElementById('totalVentasHoy');
+  if(!el)return;
+  if(badge)badge.textContent=ventas.length+' ventas';
+  var total=ventas.reduce(function(s,v){return s+v.total;},0);
+  if(totalEl)totalEl.textContent=fmt(total);
+  if(!ventas.length){el.innerHTML='<tr><td colspan="5"><div class="empty" style="padding:20px"><div class="empty-icon">🛒</div>Sin ventas hoy</div></td></tr>';return;}
+  var metodoBadge={efectivo:'💵',mercadopago:'📱',transferencia:'🏦'};
+  el.innerHTML=ventas.map(function(v,i){
+    var prods=v.items?v.items.map(function(it){return it.nombre+' ×'+it.cantidad;}).join(', '):'—';
+    return '<tr><td class="mono" style="font-size:12px">'+v.hora+'</td>'
+      +'<td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(prods)+'">'+esc(prods)+'</td>'
+      +'<td style="font-size:12px">'+(metodoBadge[v.metodo]||'')+'  '+v.metodo+'</td>'
+      +'<td class="mono c-verde" style="font-weight:600">'+fmt(v.total)+'</td>'
+      +'<td><button class="btn btn-danger btn-sm" onclick="anularVenta(\"'+hoyStr+'\",'+i+')">× Anular</button></td>'
+      +'</tr>';
+  }).join('');
+}
+
+window.anularVenta=async function(fecha,idx){
+  var ventas=D.ventasBuffet[fecha]||[];
+  var venta=ventas[ventas.length-1-idx]; // reversed
+  if(!venta)return;
+  // Devolver stock
+  if(venta.items)venta.items.forEach(function(it){if(D.productos[it.id])D.productos[it.id].stock=(D.productos[it.id].stock||0)+it.cantidad;});
+  ventas.splice(ventas.length-1-idx,1);
+  D.ventasBuffet[fecha]=ventas;
+  try{
+    await setDoc(doc(db,'config','productos'),{data:D.productos});
+    await setDoc(doc(db,'buffet',fecha),{ventas:ventas});
+    setSynced(true);toast('Venta anulada — stock restaurado');
+    pintarBuffet();
+  }catch(e){toast('Error: '+e.message,'err');setSynced(false);}
+};
+
+// PRODUCTO CRUD
+window.abrirModalProducto=function(id){
+  _editProdId=id;
+  if(id&&D.productos[id]){
+    var p=D.productos[id];
+    document.getElementById('tituloProducto').textContent='Editar producto';
+    document.getElementById('prodNombre').value=p.nombre||'';
+    document.getElementById('prodCategoria').value=p.categoria||'bebidas';
+    document.getElementById('prodCosto').value=p.costo||'';
+    document.getElementById('prodPrecio').value=p.precio||'';
+    document.getElementById('prodStock').value=p.stock||'';
+    document.getElementById('prodStockMin').value=p.stockMin||'';
+  } else {
+    document.getElementById('tituloProducto').textContent='Nuevo producto';
+    document.getElementById('prodNombre').value='';
+    document.getElementById('prodCategoria').value='bebidas';
+    document.getElementById('prodCosto').value='';
+    document.getElementById('prodPrecio').value='';
+    document.getElementById('prodStock').value='';
+    document.getElementById('prodStockMin').value='5';
+  }
+  abrir('ovProducto');
+  setTimeout(function(){document.getElementById('prodNombre').focus();},80);
+};
+
+window.guardarProducto=async function(){
+  var nombre=document.getElementById('prodNombre').value.trim();
+  if(!nombre){toast('Ingresá un nombre','err');return;}
+  var prod={
+    nombre,
+    categoria:document.getElementById('prodCategoria').value,
+    costo:parseFloat(document.getElementById('prodCosto').value)||0,
+    precio:parseFloat(document.getElementById('prodPrecio').value)||0,
+    stock:parseFloat(document.getElementById('prodStock').value)||0,
+    stockMin:parseFloat(document.getElementById('prodStockMin').value)||5
+  };
+  setBusy('btnGuardarProducto',true);
+  var id=_editProdId||'prod_'+Date.now();
+  if(!D.productos)D.productos={};
+  D.productos[id]=prod;
+  try{
+    await setDoc(doc(db,'config','productos'),{data:D.productos});
+    cerrar('ovProducto');setSynced(true);
+    toast((_editProdId?'Producto actualizado':'Producto creado')+' ✓');
+    pintarBuffet();
+  }catch(e){toast('Error: '+e.message,'err');setSynced(false);}
+  setBusy('btnGuardarProducto',false);
+};
+
+window.borrarProducto=async function(id){
+  if(!D.productos||!D.productos[id])return;
+  var nombre=D.productos[id].nombre;
+  delete D.productos[id];
+  try{
+    await setDoc(doc(db,'config','productos'),{data:D.productos});
+    setSynced(true);toast('Producto "'+nombre+'" eliminado');pintarBuffet();
+  }catch(e){toast('Error: '+e.message,'err');setSynced(false);}
+};
+
 // ── SELECTS MES ───────────────────────────────
 function sincSelects(){
   var keys={};keys[mkHoy()]=1;
@@ -1503,6 +1864,11 @@ async function cargarTodo(){
     if(usrSnap.exists())D.usuarios=usrSnap.data().data||{};
     var cliSnap=await getDoc(doc(db,'config','clientes'));
     if(cliSnap.exists())D.clientes=cliSnap.data().data||{};
+    var prodSnap=await getDoc(doc(db,'config','productos'));
+    if(prodSnap.exists())D.productos=prodSnap.data().data||{};
+    var hoyStr2=hoy();
+    var bSnap=await getDoc(doc(db,'buffet',hoyStr2));
+    if(bSnap.exists())D.ventasBuffet[hoyStr2]=bSnap.data().ventas||{};
     var socSnap=await getDoc(doc(db,'config','socios'));
     if(socSnap.exists())D.socios=socSnap.data().data||{};
     var perSnap=await getDoc(doc(db,'config','personal'));
@@ -1553,5 +1919,32 @@ document.addEventListener('DOMContentLoaded',function(){
   cargarTodo();
 });
 </script>
+
+<!-- MODAL PRODUCTO -->
+<div class="overlay" id="ovProducto">
+  <div class="modal">
+    <div class="modal-title" id="tituloProducto">Nuevo producto</div>
+    <div class="form-group"><label>Nombre</label><input type="text" id="prodNombre" placeholder="Ej: Coca Cola 500ml"></div>
+    <div class="form-group">
+      <label>Categoría</label>
+      <select id="prodCategoria">
+        <option value="bebidas">🥤 Bebidas</option>
+        <option value="comidas">🍕 Comidas</option>
+        <option value="snacks">🍿 Snacks</option>
+        <option value="otros">📦 Otros</option>
+      </select>
+    </div>
+    <div class="form-grid-2">
+      <div class="form-group"><label>Costo ($)</label><input type="number" id="prodCosto" placeholder="0" min="0"></div>
+      <div class="form-group"><label>Precio venta ($)</label><input type="number" id="prodPrecio" placeholder="0" min="0"></div>
+    </div>
+    <div class="form-group"><label>Stock actual (unidades)</label><input type="number" id="prodStock" placeholder="0" min="0"></div>
+    <div class="form-group"><label>Stock mínimo (alerta)</label><input type="number" id="prodStockMin" placeholder="5" min="0"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="cerrar('ovProducto')">Cancelar</button>
+      <button class="btn btn-sm" id="btnGuardarProducto" onclick="guardarProducto()">Guardar</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
