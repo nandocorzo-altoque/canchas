@@ -191,6 +191,20 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
     <button class="btn btn-sm btn-ghost" style="margin-left:auto" onclick="pintarHoy()">↺ Actualizar</button>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" id="hoyGrid"></div>
+
+  <!-- MENSAJES DEL DIA -->
+  <div class="card" id="mensajesCard" style="margin-top:20px">
+    <div class="card-title">💬 Mensajes de confirmación
+      <span class="badge" id="mensajesBadge"></span>
+    </div>
+    <p style="font-size:13px;color:var(--gris-texto);margin-bottom:16px;line-height:1.5">
+      Clientes con turno fijo hoy que tienen teléfono cargado. Click en <strong style="color:var(--verde)">Enviar</strong> para abrir WhatsApp con el mensaje pre-armado.
+    </p>
+    <div id="mensajesLista"></div>
+    <div id="mensajesVacio" style="display:none">
+      <div class="empty"><div class="empty-icon">💬</div>No hay clientes con teléfono para hoy.<br><span style="font-size:12px">Cargá teléfonos en la pestaña 📱 Clientes.</span></div>
+    </div>
+  </div>
 </div>
 
 <div class="tab" id="tab-turnos">
@@ -310,6 +324,16 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
           <div class="cfg-section-title">🥤 Retiro gaseosas</div>
           <div style="font-size:12px;color:var(--gris-texto);margin-bottom:8px">Descuento = cant. gaseosas × precio</div>
           <div class="form-group" style="margin-bottom:0"><label>$ por gaseosa / turno</label><input type="number" id="cfgPrecioGaseosa" placeholder="0"></div>
+        </div>
+        <div class="cfg-section">
+          <div class="cfg-section-title">💬 Mensaje de confirmación</div>
+          <div style="font-size:12px;color:var(--gris-texto);margin-bottom:8px;line-height:1.5">
+            Usá <strong style="color:var(--verde)">{nombre}</strong> para el nombre del cliente y <strong style="color:var(--verde)">{hora}</strong> para el horario.
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Mensaje</label>
+            <textarea id="cfgMensaje" rows="3" placeholder="Ej: Hola {nombre}! Te confirmamos tu turno de hoy a las {hora}. ¿Venís?" style="width:100%;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;resize:vertical;transition:border-color 0.2s"></textarea>
+          </div>
         </div>
         <button class="btn" id="btnGuardarConfig" onclick="guardarConfig()" style="width:100%">Guardar configuración</button>
         <div id="cfgMsg" style="font-size:12px;color:var(--verde);margin-top:10px;text-align:center;display:none">✓ Guardado en la nube</div>
@@ -558,7 +582,7 @@ var D={
   cancha:1,semana:0,
   eventuales:{1:{},2:{}},fijos:{1:{},2:{}},ausentes:{1:{},2:{}},asistencias:{1:{},2:{}},
   caja:{},gastos:{},retiros:{},clientes:{},
-  config:{nombreComplejo:'Canchas Al Toque',precioTurno:35000,precioGaseosa:0,adminPass:'admin123'},
+  config:{nombreComplejo:'Canchas Al Toque',precioTurno:35000,precioGaseosa:0,adminPass:'admin123',mensajeConfirmacion:'Hola {nombre}! Te recordamos tu turno de hoy a las {hora} en Cancha {cancha}. ¿Confirmás tu asistencia?'},
   socios:{},   // {id:{nombre,pct,base}}
   personal:{}, // {id:{nombre,precioPorHora}}
   usuarios:{}, // {id:{usuario,pass,permisos:[tab ids]}}
@@ -833,6 +857,7 @@ function pintarHoy(){
     +'<button class="btn" onclick="abrirCierreDia()">💰 Registrar caja del día</button>'
     +'</div></div>';
   document.getElementById('hoyGrid').innerHTML=html;
+  pintarMensajes();
 }
 
 window.toggleAsiHoy=async function(c,fecha,hora){
@@ -1213,6 +1238,7 @@ function pintarConfig(){
   document.getElementById('cfgNombreComplejo').value=cfg.nombreComplejo||'';
   document.getElementById('cfgPrecioTurno').value=cfg.precioTurno||'';
   document.getElementById('cfgPrecioGaseosa').value=cfg.precioGaseosa||'';
+  document.getElementById('cfgMensaje').value=cfg.mensajeConfirmacion||'';
   var logo=localStorage.getItem('canchas_logo');
   if(logo){document.getElementById('cfgLogoPreview').src=logo;document.getElementById('cfgLogoPreview').style.display='block';document.getElementById('cfgLogoTxt').style.display='none';}
   pintarSociosConfig();pintarPersonalConfig();pintarUsuariosConfig();
@@ -1223,6 +1249,7 @@ window.guardarConfig=async function(){
   D.config.nombreComplejo=document.getElementById('cfgNombreComplejo').value.trim()||'Canchas Al Toque';
   D.config.precioTurno=parseFloat(document.getElementById('cfgPrecioTurno').value)||0;
   D.config.precioGaseosa=parseFloat(document.getElementById('cfgPrecioGaseosa').value)||0;
+  D.config.mensajeConfirmacion=document.getElementById('cfgMensaje').value.trim()||'Hola {nombre}! Te recordamos tu turno de hoy a las {hora} en Cancha {cancha}. ¿Confirmás tu asistencia?';
   setBusy('btnGuardarConfig',true);
   try{await setDoc(doc(db,'config','precios'),D.config);aplicarConfig();setSynced(true);toast('Guardado ✓');var msg=document.getElementById('cfgMsg');msg.style.display='block';setTimeout(function(){msg.style.display='none';},2500);}catch(e){toast('Error: '+e.message,'err');setSynced(false);}
   setBusy('btnGuardarConfig',false);
