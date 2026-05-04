@@ -922,7 +922,7 @@ function pintarHoy(){
         var bg=asistio?'rgba(0,230,118,0.06)':esAusenteSinReem?'rgba(255,214,0,0.04)':'transparent';
         var btn='';
         if(!esAusenteSinReem){
-          btn='<button onclick="toggleAsiHoy('+c+',\''+hoyStr+'\',\''+hora+'\')" style="background:'+(asistio?'rgba(0,230,118,0.15)':'transparent')+';border:1px solid '+(asistio?'var(--verde)':'var(--gris-borde)')+';color:'+(asistio?'var(--verde)':'var(--gris-texto)')+';border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;font-weight:'+(asistio?'600':'400')+';white-space:nowrap">'+(asistio?'✓ Asistió':'Confirmar')+'</button>';
+          btn='<button data-action="toggle-asi" data-cancha="'+c+'" data-fecha="'+hoyStr+'" data-hora="'+hora+'" style="background:'+(asistio?'rgba(0,230,118,0.15)':'transparent')+';border:1px solid '+(asistio?'var(--verde)':'var(--gris-borde)')+';color:'+(asistio?'var(--verde)':'var(--gris-texto)')+';border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;font-weight:'+(asistio?'600':'400')+';white-space:nowrap">'+(asistio?'✓ Asistió':'Confirmar')+'</button>';
         }
         html+='<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:'+bg+';border:1px solid '+border+';border-radius:8px">'
           +'<div style="font-family:monospace;font-size:12px;color:var(--verde);min-width:44px;font-weight:600">'+hora+'</div>'
@@ -1555,7 +1555,7 @@ function pintarMensajes(){
       +'<div style="font-size:11px;color:var(--gris-texto);font-family:monospace">Cancha '+c.cancha+' · '+c.hora+(asistio?' · <span style="color:var(--verde)">✓ Asistió</span>':'')+'</div>'
       +'<div style="font-size:12px;color:var(--azul);margin-top:2px">📱 '+esc(c.telefono)+'</div></div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      +'<button onclick="copiarMensaje(\"'+mid+'\")" style="background:var(--gris-borde);color:var(--blanco);border:none;border-radius:7px;padding:8px 14px;font-size:12px;cursor:pointer;font-weight:500">📋 Copiar mensaje</button>'
+      +'<button data-action="copiar-msg" data-mid="'+mid+'" style="background:var(--gris-borde);color:var(--blanco);border:none;border-radius:7px;padding:8px 14px;font-size:12px;cursor:pointer;font-weight:500">📋 Copiar mensaje</button>'
       +'<a href="'+waUrl+'" target="_blank" style="background:#25D366;color:#fff;border-radius:7px;padding:8px 14px;font-size:12px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:5px">📲 Abrir WhatsApp</a>'
       +'</div></div>'
       +'<div style="border-top:1px solid var(--gris-borde);padding:10px 14px;background:rgba(0,0,0,0.15)">'
@@ -1624,16 +1624,19 @@ function pintarInventario(){
       +'<span style="font-size:10px;background:var(--gris-borde);border-radius:3px;padding:1px 6px;color:var(--gris-texto)">'+((CATS[p.categoria]||p.categoria||'').split(' ')[0])+'</span>'
       +(stockBajo?'<span style="font-size:10px;background:rgba(255,68,68,0.15);color:var(--rojo);border-radius:3px;padding:1px 6px">⚠ Stock bajo</span>':'')
       +'</div>'
-      +'<div style="display:flex;gap:12px;font-size:11px;color:var(--gris-texto);font-family:monospace;flex-wrap:wrap">'
-      +'<span>Costo: '+fmt(p.costo)+'</span>'
+      +'<div style="display:flex;gap:10px;font-size:11px;color:var(--gris-texto);font-family:monospace;flex-wrap:wrap">'
+      +(p.costoNeto?'<span>Neto: '+fmt(p.costoNeto)+'</span>':'')
+      +(p.iva?'<span>IVA: '+p.iva+'%</span>':'')
+      +(p.impInt?'<span>Imp.Int: '+p.impInt+'%</span>':'')
+      +'<span>Costo real: '+fmt(p.costo)+'</span>'
       +'<span style="color:var(--verde)">Venta: '+fmt(p.precio)+'</span>'
       +'<span style="color:var(--amarillo)">Margen: '+margen+'%</span>'
       +'<span style="color:'+(stockBajo?'var(--rojo)':'var(--azul)')+'">Stock: '+(p.stock||0)+' u</span>'
       +'</div>'
       +'</div>'
       +'<div style="display:flex;gap:6px;flex-shrink:0">'
-      +'<button class="btn btn-ghost btn-sm" onclick="abrirModalProducto(\"'+id+'\")">✏️</button>'
-      +'<button class="btn btn-danger btn-sm" onclick="borrarProducto(\"'+id+'\")">×</button>'
+      +'<button class="btn btn-ghost btn-sm" data-action="editar-prod" data-id="'+id+'">✏️</button>'
+      +'<button class="btn btn-danger btn-sm" data-action="borrar-prod" data-id="'+id+'">×</button>'
       +'</div></div>';
   }).join('');
 }
@@ -1671,9 +1674,9 @@ function filtrarProductosVenta(){
         +'<div style="font-size:11px;color:var(--verde);font-family:monospace">'+fmt(p.precio)+' <span style="color:var(--gris-texto)">· Stock: '+(p.stock||0)+'</span></div>'
         +'</div>'
         +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
-        +(enCarrito>0?'<button onclick="cambiarCantidadCarrito(\"'+id+'\",-1)" style="background:var(--gris-borde);border:none;color:var(--blanco);width:26px;height:26px;border-radius:5px;cursor:pointer;font-size:14px">−</button>':'')
+        +(enCarrito>0?'<button data-action="carrito-menos" data-id="'+id+'" style="background:var(--gris-borde);border:none;color:var(--blanco);width:26px;height:26px;border-radius:5px;cursor:pointer;font-size:14px">−</button>':'')
         +(enCarrito>0?'<span style="font-family:monospace;font-size:13px;font-weight:600;min-width:20px;text-align:center">'+enCarrito+'</span>':'')
-        +'<button onclick="cambiarCantidadCarrito(\"'+id+'\",1)" style="background:var(--verde);border:none;color:var(--negro);width:26px;height:26px;border-radius:5px;cursor:pointer;font-size:14px;font-weight:600">+</button>'
+        +'<button data-action="carrito-mas" data-id="'+id+'" style="background:var(--verde);border:none;color:var(--negro);width:26px;height:26px;border-radius:5px;cursor:pointer;font-size:14px;font-weight:600">+</button>'
         +'</div></div>';
     });
   });
@@ -1764,7 +1767,7 @@ function pintarVentasHoy(){
       +'<td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(prods)+'">'+esc(prods)+'</td>'
       +'<td style="font-size:12px">'+(metodoBadge[v.metodo]||'')+'  '+v.metodo+'</td>'
       +'<td class="mono c-verde" style="font-weight:600">'+fmt(v.total)+'</td>'
-      +'<td><button class="btn btn-danger btn-sm" onclick="anularVenta(\"'+hoyStr+'\",'+i+')">× Anular</button></td>'
+      +'<td><button class="btn btn-danger btn-sm" data-action="anular-venta" data-fecha="'+hoyStr+'" data-idx="'+i+'">× Anular</button></td>'
       +'</tr>';
   }).join('');
 }
@@ -1786,6 +1789,25 @@ window.anularVenta=async function(fecha,idx){
 };
 
 // PRODUCTO CRUD
+// Calcula costo real y precio sugerido en tiempo real
+window.calcPrecioProducto=function(){
+  var neto=parseFloat(document.getElementById('prodCostoNeto').value)||0;
+  var iva=parseFloat(document.getElementById('prodIva').value)||0;
+  var impInt=parseFloat(document.getElementById('prodImpInt').value)||0;
+  var rent=parseFloat(document.getElementById('prodRentabilidad').value)||0;
+  var costoReal=neto*(1+iva/100)*(1+impInt/100);
+  var sugerido=costoReal*(1+rent/100);
+  document.getElementById('prodCostoReal').textContent=fmt(Math.round(costoReal));
+  document.getElementById('prodPrecioSugerido').textContent=fmt(Math.round(sugerido));
+  // Solo actualiza precio final si no fue tocado manualmente o si viene de sugerido
+  var precioFinal=parseFloat(document.getElementById('prodPrecio').value)||0;
+  if(rent>0&&(!precioFinal||document.getElementById('prodPrecio').dataset.manual!=='1')){
+    document.getElementById('prodPrecio').value=Math.round(sugerido);
+  }
+  var ganancia=(parseFloat(document.getElementById('prodPrecio').value)||0)-costoReal;
+  document.getElementById('prodGananciaUnit').textContent=fmt(Math.round(ganancia));
+};
+
 window.abrirModalProducto=function(id){
   _editProdId=id;
   if(id&&D.productos[id]){
@@ -1793,19 +1815,36 @@ window.abrirModalProducto=function(id){
     document.getElementById('tituloProducto').textContent='Editar producto';
     document.getElementById('prodNombre').value=p.nombre||'';
     document.getElementById('prodCategoria').value=p.categoria||'bebidas';
-    document.getElementById('prodCosto').value=p.costo||'';
+    document.getElementById('prodCostoNeto').value=p.costoNeto||p.costo||'';
+    document.getElementById('prodIva').value=p.iva!==undefined?p.iva:21;
+    document.getElementById('prodImpInt').value=p.impInt||'';
+    document.getElementById('prodRentabilidad').value=p.rentabilidad||'';
     document.getElementById('prodPrecio').value=p.precio||'';
+    document.getElementById('prodPrecio').dataset.manual='1';
     document.getElementById('prodStock').value=p.stock||'';
-    document.getElementById('prodStockMin').value=p.stockMin||'';
+    document.getElementById('prodStockMin').value=p.stockMin||'5';
   } else {
     document.getElementById('tituloProducto').textContent='Nuevo producto';
     document.getElementById('prodNombre').value='';
     document.getElementById('prodCategoria').value='bebidas';
-    document.getElementById('prodCosto').value='';
+    document.getElementById('prodCostoNeto').value='';
+    document.getElementById('prodIva').value='21';
+    document.getElementById('prodImpInt').value='';
+    document.getElementById('prodRentabilidad').value='30';
     document.getElementById('prodPrecio').value='';
+    document.getElementById('prodPrecio').dataset.manual='';
     document.getElementById('prodStock').value='';
     document.getElementById('prodStockMin').value='5';
+    document.getElementById('prodCostoReal').textContent='$0';
+    document.getElementById('prodPrecioSugerido').textContent='$0';
+    document.getElementById('prodGananciaUnit').textContent='$0';
   }
+  // Marcar precio como manual si el usuario lo edita
+  document.getElementById('prodPrecio').oninput=function(){
+    this.dataset.manual='1';
+    calcPrecioProducto();
+  };
+  if(id&&D.productos[id]) calcPrecioProducto();
   abrir('ovProducto');
   setTimeout(function(){document.getElementById('prodNombre').focus();},80);
 };
@@ -1813,10 +1852,18 @@ window.abrirModalProducto=function(id){
 window.guardarProducto=async function(){
   var nombre=document.getElementById('prodNombre').value.trim();
   if(!nombre){toast('Ingresá un nombre','err');return;}
+  var costoNeto=parseFloat(document.getElementById('prodCostoNeto').value)||0;
+  var iva=parseFloat(document.getElementById('prodIva').value)||0;
+  var impInt=parseFloat(document.getElementById('prodImpInt').value)||0;
+  var costoReal=Math.round(costoNeto*(1+iva/100)*(1+impInt/100));
   var prod={
     nombre,
     categoria:document.getElementById('prodCategoria').value,
-    costo:parseFloat(document.getElementById('prodCosto').value)||0,
+    costoNeto,
+    iva,
+    impInt,
+    rentabilidad:parseFloat(document.getElementById('prodRentabilidad').value)||0,
+    costo:costoReal,
     precio:parseFloat(document.getElementById('prodPrecio').value)||0,
     stock:parseFloat(document.getElementById('prodStock').value)||0,
     stockMin:parseFloat(document.getElementById('prodStockMin').value)||5
@@ -1856,6 +1903,21 @@ function sincSelects(){
 }
 
 // ── CARGA INICIAL ─────────────────────────────
+
+// EVENT DELEGATION
+document.addEventListener('click', function(e){
+  var el = e.target.closest('[data-action]');
+  if(!el) return;
+  var a = el.dataset.action;
+  var id = el.dataset.id;
+  if(a==='editar-prod')   window.abrirModalProducto(id);
+  if(a==='borrar-prod')   window.borrarProducto(id);
+  if(a==='carrito-mas')   window.cambiarCantidadCarrito(id, 1);
+  if(a==='carrito-menos') window.cambiarCantidadCarrito(id, -1);
+  if(a==='anular-venta')  window.anularVenta(el.dataset.fecha, parseInt(el.dataset.idx));
+  if(a==='copiar-msg')    window.copiarMensaje(el.dataset.mid);
+  if(a==='toggle-asi')    window.toggleAsiHoy(el.dataset.cancha, el.dataset.fecha, el.dataset.hora);
+});
 async function cargarTodo(){
   try{
     var cfgSnap=await getDoc(doc(db,'config','precios'));
@@ -1922,24 +1984,79 @@ document.addEventListener('DOMContentLoaded',function(){
 
 <!-- MODAL PRODUCTO -->
 <div class="overlay" id="ovProducto">
-  <div class="modal">
+  <div class="modal" style="max-width:480px">
     <div class="modal-title" id="tituloProducto">Nuevo producto</div>
-    <div class="form-group"><label>Nombre</label><input type="text" id="prodNombre" placeholder="Ej: Coca Cola 500ml"></div>
-    <div class="form-group">
-      <label>Categoría</label>
-      <select id="prodCategoria">
-        <option value="bebidas">🥤 Bebidas</option>
-        <option value="comidas">🍕 Comidas</option>
-        <option value="snacks">🍿 Snacks</option>
-        <option value="otros">📦 Otros</option>
-      </select>
-    </div>
+
     <div class="form-grid-2">
-      <div class="form-group"><label>Costo ($)</label><input type="number" id="prodCosto" placeholder="0" min="0"></div>
-      <div class="form-group"><label>Precio venta ($)</label><input type="number" id="prodPrecio" placeholder="0" min="0"></div>
+      <div class="form-group"><label>Nombre</label><input type="text" id="prodNombre" placeholder="Ej: Coca Cola 500ml" style="font-size:13px"></div>
+      <div class="form-group">
+        <label>Categoría</label>
+        <select id="prodCategoria">
+          <option value="bebidas">🥤 Bebidas</option>
+          <option value="comidas">🍕 Comidas</option>
+          <option value="snacks">🍿 Snacks</option>
+          <option value="otros">📦 Otros</option>
+        </select>
+      </div>
     </div>
-    <div class="form-group"><label>Stock actual (unidades)</label><input type="number" id="prodStock" placeholder="0" min="0"></div>
-    <div class="form-group"><label>Stock mínimo (alerta)</label><input type="number" id="prodStockMin" placeholder="5" min="0"></div>
+
+    <!-- PRECIO DE COSTO -->
+    <div style="background:var(--gris-fondo);border-radius:10px;padding:14px;margin-bottom:12px;border:1px solid var(--gris-borde)">
+      <div style="font-size:11px;color:var(--gris-texto);font-family:monospace;text-transform:uppercase;margin-bottom:10px">💰 Costo de factura</div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label>Precio neto de factura ($)</label>
+        <input type="number" id="prodCostoNeto" placeholder="0" min="0" oninput="calcPrecioProducto()">
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group" style="margin-bottom:8px">
+          <label>IVA</label>
+          <select id="prodIva" onchange="calcPrecioProducto()">
+            <option value="0">Exento (0%)</option>
+            <option value="10.5">10.5%</option>
+            <option value="21" selected>21%</option>
+            <option value="27">27%</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:8px">
+          <label>Imp. Internos (%)</label>
+          <input type="number" id="prodImpInt" placeholder="0" min="0" max="100" step="0.1" oninput="calcPrecioProducto()">
+        </div>
+      </div>
+      <div style="background:rgba(0,230,118,0.05);border-radius:8px;padding:10px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:var(--gris-texto);font-family:monospace">COSTO REAL (con impuestos)</span>
+        <span class="mono c-verde" id="prodCostoReal" style="font-size:16px;font-weight:600">$0</span>
+      </div>
+    </div>
+
+    <!-- PRECIO DE VENTA -->
+    <div style="background:var(--gris-fondo);border-radius:10px;padding:14px;margin-bottom:12px;border:1px solid var(--gris-borde)">
+      <div style="font-size:11px;color:var(--gris-texto);font-family:monospace;text-transform:uppercase;margin-bottom:10px">🏷️ Precio de venta</div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label>Rentabilidad (%)</label>
+        <input type="number" id="prodRentabilidad" placeholder="30" min="0" oninput="calcPrecioProducto()">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;background:rgba(0,230,118,0.05);border-radius:8px;padding:10px">
+        <div>
+          <div style="font-size:10px;color:var(--gris-texto);font-family:monospace;margin-bottom:3px">PRECIO SUGERIDO</div>
+          <div class="mono c-verde" id="prodPrecioSugerido" style="font-size:18px;font-weight:700">$0</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--gris-texto);font-family:monospace;margin-bottom:3px">PRECIO FINAL</div>
+          <input type="number" id="prodPrecio" placeholder="0" min="0" oninput="calcPrecioProducto()" style="background:var(--negro);border:1px solid rgba(0,230,118,0.4);border-radius:6px;color:var(--verde);padding:6px 10px;font-family:monospace;font-size:16px;font-weight:700;width:100%;outline:none">
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid var(--gris-borde)">
+        <span style="font-size:11px;color:var(--gris-texto);font-family:monospace">GANANCIA POR UNIDAD</span>
+        <span class="mono c-amarillo" id="prodGananciaUnit" style="font-size:12px;font-weight:600">$0</span>
+      </div>
+    </div>
+
+    <!-- STOCK -->
+    <div class="form-grid-2">
+      <div class="form-group"><label>Stock actual (u)</label><input type="number" id="prodStock" placeholder="0" min="0"></div>
+      <div class="form-group"><label>Stock mínimo (alerta)</label><input type="number" id="prodStockMin" placeholder="5" min="0"></div>
+    </div>
+
     <div class="modal-footer">
       <button class="btn btn-ghost btn-sm" onclick="cerrar('ovProducto')">Cancelar</button>
       <button class="btn btn-sm" id="btnGuardarProducto" onclick="guardarProducto()">Guardar</button>
