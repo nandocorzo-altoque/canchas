@@ -3298,6 +3298,260 @@ window.borrarProveedor=async function(id){
   }catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
 };
 
+
+// ── ASISTENTE DE VOZ ──────────────────────────
+var _asistenteAbierto = false;
+var _reconocimiento = null;
+var _escuchando = false;
+var _historialChat = [];
+var _hablandoAhora = false;
+
+function toggleAsistente(){
+  _asistenteAbierto = !_asistenteAbierto;
+  var panel = document.getElementById('asistentePanel');
+  var btn = document.getElementById('btnAsistente');
+  if(_asistenteAbierto){
+    panel.style.display = 'flex';
+    btn.style.background = 'var(--gris-borde)';
+    btn.textContent = '×';
+    if(!_historialChat.length) agregarMensajeAsistente('sistema', 'Hola! Podés preguntarme sobre turnos, disponibilidad, caja, stock o cualquier dato del sistema. Usá el micrófono o escribí.');
+    setTimeout(function(){ document.getElementById('asistenteInput').focus(); }, 100);
+  } else {
+    cerrarAsistente();
+  }
+}
+window.toggleAsistente = toggleAsistente;
+
+function cerrarAsistente(){
+  _asistenteAbierto = false;
+  document.getElementById('asistentePanel').style.display = 'none';
+  var btn = document.getElementById('btnAsistente');
+  btn.style.background = 'var(--verde)';
+  btn.textContent = '🎤';
+  if(_escuchando) detenerMicrofono();
+  if(_hablandoAhora) window.speechSynthesis && window.speechSynthesis.cancel();
+}
+window.cerrarAsistente = cerrarAsistente;
+
+function setEstadoAsistente(texto, color){
+  var el = document.getElementById('asistenteEstado');
+  var ind = document.getElementById('asistenteIndicador');
+  if(el) el.textContent = texto;
+  if(ind) ind.style.background = color || 'var(--gris-borde)';
+}
+
+function agregarMensajeAsistente(rol, texto){
+  _historialChat.push({rol: rol, texto: texto});
+  var chat = document.getElementById('asistenteChat');
+  if(!chat) return;
+  var isUser = rol === 'user';
+  var isSistema = rol === 'sistema';
+  var div = document.createElement('div');
+  div.style.cssText = 'display:flex;justify-content:'+(isUser?'flex-end':'flex-start');
+  var bubble = document.createElement('div');
+  bubble.style.cssText = 'max-width:85%;padding:8px 12px;border-radius:10px;font-size:13px;line-height:1.5;'
+    +(isUser?'background:var(--verde);color:var(--negro);border-radius:10px 10px 2px 10px'
+      :isSistema?'background:var(--gris-fondo);color:var(--gris-texto);font-style:italic;font-size:12px'
+      :'background:var(--gris-fondo);color:var(--blanco);border-radius:10px 10px 10px 2px');
+  bubble.textContent = texto;
+  div.appendChild(bubble);
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function construirContexto(){
+  var hoyStr = hoy();
+  var ds = dSem(hoyStr);
+  var diasN = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+
+  // Turnos de hoy
+  var turnosHoy = [];
+  [1,2].forEach(function(c){
+    var fij = D.fijos[c]||{}, ev = D.eventuales[c]||{}, aus = D.ausentes[c]||{}, asi = D.asistencias[c]||{};
+    HORAS.forEach(function(hora){
+      var nFijo = (fij[ds]||{})[hora];
+      var nEv = (ev[hoyStr]||{})[hora];
+      var ausData = aus[hoyStr]&&aus[hoyStr][hora];
+      var asistio = !!(asi[hoyStr]&&asi[hoyStr][hora]);
+      if(nFijo||nEv){
+        var nombre = nFijo||nEv;
+        var estado = asistio?'asistió':ausData?'ausente':'pendiente';
+        turnosHoy.push('C'+c+' '+hora+': '+nombre+' ('+estado+')');
+      }
+    });
+  });
+
+  // Disponibilidad semana actual
+  var disponibles = [];
+  var dias = diasSemana(0);
+  dias.forEach(function(dia){
+    var dsDia = dSem(dia);
+    [1,2].forEach(function(c){
+      var fij = D.fijos[c]||{}, ev = D.eventuales[c]||{};
+      HORAS.forEach(function(hora){
+        var ocupado = (fij[dsDia]||{})[hora]||(ev[dia]||{})[hora];
+        if(!ocupado) disponibles.push(diasN[dsDia]+' '+hora+' C'+c);
+      });
+    });
+  });
+
+  // Caja del mes
+  var mk = mkMes(hoyStr);
+  var cajaMes = D.caja[mk]||[];
+  var totalCajaMes = cajaMes.reduce(function(s,d){ return s+d.total; },0);
+  var cajaDia = cajaMes.filter(function(d){ return d.fecha===hoyStr; });
+  var totalCajaDia = cajaDia.reduce(function(s,d){ return s+d.total; },0);
+
+  // Ventas buffet hoy
+  var ventasHoy = D.ventasBuffet[hoyStr]||[];
+  var totalBuffetHoy = ventasHoy.reduce(function(s,v){ return s+(v.total||0); },0);
+
+  // Stock bajo
+  var stockBajo = Object.values(D.productos||{}).filter(function(p){ return (p.stock||0)<=(p.stockMin||5); }).map(function(p){ return p.nombre+' ('+p.stock+' u)'; });
+
+  // Clientes fijos
+  var clientes = Object.values(D.clientes||{}).map(function(c){ return c.nombre+' C'+c.cancha+' '+diasN[c.diaSem]+' '+c.hora; });
+
+  return 'Sos un asistente del complejo de canchas "'+( D.config.nombreComplejo||'Canchas Al Toque')+'". '
+    +'Fecha de hoy: '+hoyStr+' ('+diasN[ds]+'). '
+    +'Respondé siempre en español, de forma concisa y directa. '
+    +'No inventes datos — solo usá los que te doy. '
+    +'\n\nTURNOS DE HOY ('+diasN[ds]+'): '+(turnosHoy.length?turnosHoy.join(', '):'ninguno registrado')+'.'
+    +'\n\nHORARIOS LIBRES ESTA SEMANA (primeros 10): '+disponibles.slice(0,10).join(' | ')+(disponibles.length>10?' y '+(disponibles.length-10)+' mas':'')+'.'
+    +'\n\nCAJA HOY: $'+totalCajaDia.toLocaleString('es-AR')+'. CAJA MES: $'+totalCajaMes.toLocaleString('es-AR')+'.'
+    +'\n\nBUFFET HOY: '+ventasHoy.length+' ventas, total $'+totalBuffetHoy.toLocaleString('es-AR')+'.'
+    +(stockBajo.length?'\n\nSTOCK BAJO: '+stockBajo.join(', ')+'.':'')
+    +'\n\nCLIENTES FIJOS: '+(clientes.length?clientes.slice(0,15).join('; '):'ninguno')+'.'
+    +'\n\nSi preguntan disponibilidad, verifica si el horario aparece libre. Si no esta en la lista de libres, esta ocupado.';
+}
+
+window.enviarMensajeAsistente = async function(){
+  var input = document.getElementById('asistenteInput');
+  var texto = input.value.trim();
+  if(!texto) return;
+  input.value = '';
+  agregarMensajeAsistente('user', texto);
+  setEstadoAsistente('Pensando...', 'var(--amarillo)');
+
+  // Build messages for Claude
+  var msgs = [];
+  var histPrevio = _historialChat.slice(0,-1); // exclude current
+  // Add up to last 6 exchanges
+  var inicio = Math.max(0, histPrevio.length-12);
+  histPrevio.slice(inicio).forEach(function(m){
+    if(m.rol==='user'||m.rol==='assistant') msgs.push({role:m.rol,content:m.content||m.texto});
+  });
+  msgs.push({role:'user',content:texto});
+
+  try{
+    var resp = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:400,
+        system: construirContexto(),
+        messages: msgs
+      })
+    });
+    if(!resp.ok){
+      var e=await resp.json();
+      throw new Error(e.error&&e.error.message?e.error.message:'Error API');
+    }
+    var data = await resp.json();
+    var respTexto = data.content&&data.content[0]&&data.content[0].text||'Sin respuesta';
+    agregarMensajeAsistente('assistant', respTexto);
+    // Update historial with correct role
+    _historialChat[_historialChat.length-1].rol = 'assistant';
+    _historialChat[_historialChat.length-1].content = respTexto;
+    setEstadoAsistente('Listo', 'var(--verde)');
+    hablar(respTexto);
+  } catch(err){
+    agregarMensajeAsistente('sistema', 'Error: '+err.message);
+    setEstadoAsistente('Error', 'var(--rojo)');
+  }
+};
+
+function hablar(texto){
+  if(!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  var utterance = new SpeechSynthesisUtterance(texto);
+  utterance.lang = 'es-AR';
+  utterance.rate = 1.05;
+  utterance.pitch = 1;
+  _hablandoAhora = true;
+  setEstadoAsistente('Hablando...', 'var(--azul)');
+  utterance.onend = function(){
+    _hablandoAhora = false;
+    setEstadoAsistente('Listo', 'var(--verde)');
+  };
+  // Try to find a Spanish voice
+  var voices = window.speechSynthesis.getVoices();
+  var esVoice = voices.find(function(v){ return v.lang.startsWith('es'); });
+  if(esVoice) utterance.voice = esVoice;
+  window.speechSynthesis.speak(utterance);
+}
+
+window.toggleMicrofono = function(){
+  if(_escuchando){ detenerMicrofono(); return; }
+  iniciarMicrofono();
+};
+
+function iniciarMicrofono(){
+  var SpeechRecognition = window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SpeechRecognition){
+    toast('Tu navegador no soporta reconocimiento de voz. Usá Chrome.','err');
+    return;
+  }
+  if(window.speechSynthesis) window.speechSynthesis.cancel();
+  _reconocimiento = new SpeechRecognition();
+  _reconocimiento.lang = 'es-AR';
+  _reconocimiento.continuous = false;
+  _reconocimiento.interimResults = true;
+
+  _reconocimiento.onstart = function(){
+    _escuchando = true;
+    setEstadoAsistente('Escuchando...', 'var(--rojo)');
+    var btn = document.getElementById('btnMicAsistente');
+    if(btn){ btn.style.background='var(--rojo)'; btn.textContent='⏹'; }
+  };
+
+  _reconocimiento.onresult = function(event){
+    var transcript = Array.from(event.results).map(function(r){ return r[0].transcript; }).join('');
+    document.getElementById('asistenteInput').value = transcript;
+    if(event.results[event.results.length-1].isFinal){
+      detenerMicrofono();
+      enviarMensajeAsistente();
+    }
+  };
+
+  _reconocimiento.onerror = function(event){
+    detenerMicrofono();
+    if(event.error!=='aborted') setEstadoAsistente('Error mic', 'var(--rojo)');
+  };
+
+  _reconocimiento.onend = function(){
+    if(_escuchando) detenerMicrofono();
+  };
+
+  _reconocimiento.start();
+}
+
+function detenerMicrofono(){
+  _escuchando = false;
+  if(_reconocimiento){ try{ _reconocimiento.stop(); }catch(e){} _reconocimiento=null; }
+  setEstadoAsistente('Listo', 'var(--verde)');
+  var btn = document.getElementById('btnMicAsistente');
+  if(btn){ btn.style.background='var(--gris-borde)'; btn.textContent='🎤'; }
+}
+
+// Load voices when available
+if(window.speechSynthesis){
+  window.speechSynthesis.onvoiceschanged = function(){
+    window.speechSynthesis.getVoices();
+  };
+}
+
 // ── SELECTS MES ───────────────────────────────
 function sincSelects(){
   var keys={};keys[mkHoy()]=1;
@@ -3711,6 +3965,27 @@ document.addEventListener('DOMContentLoaded',function(){
     </div>
   </div>
 </div>
+
+<!-- ASISTENTE DE VOZ -->
+<div id="asistentePanel" style="display:none;position:fixed;bottom:90px;right:24px;width:340px;max-height:480px;background:var(--gris-card);border:1px solid var(--gris-borde);border-radius:16px;z-index:5000;box-shadow:0 8px 32px rgba(0,0,0,0.5);display:none;flex-direction:column;overflow:hidden">
+  <div style="padding:14px 16px;border-bottom:1px solid var(--gris-borde);display:flex;align-items:center;justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div id="asistenteIndicador" style="width:8px;height:8px;border-radius:50%;background:var(--gris-borde)"></div>
+      <span style="font-size:13px;font-weight:600">Asistente</span>
+      <span style="font-size:10px;color:var(--gris-texto);font-family:monospace" id="asistenteEstado">Listo</span>
+    </div>
+    <button onclick="cerrarAsistente()" style="background:none;border:none;color:var(--gris-texto);cursor:pointer;font-size:18px;line-height:1">×</button>
+  </div>
+  <div id="asistenteChat" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;max-height:320px"></div>
+  <div style="padding:10px 12px;border-top:1px solid var(--gris-borde);display:flex;gap:8px;align-items:center">
+    <input type="text" id="asistenteInput" placeholder="Escribí o usá el micrófono..." style="flex:1;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:8px 12px;font-size:13px;outline:none" onkeydown="if(event.key==='Enter')enviarMensajeAsistente()">
+    <button id="btnMicAsistente" onclick="toggleMicrofono()" style="background:var(--gris-borde);border:none;color:var(--blanco);width:36px;height:36px;border-radius:8px;cursor:pointer;font-size:18px;transition:all 0.2s;flex-shrink:0" title="Hablar">🎤</button>
+    <button onclick="enviarMensajeAsistente()" style="background:var(--verde);border:none;color:var(--negro);width:36px;height:36px;border-radius:8px;cursor:pointer;font-size:16px;flex-shrink:0">↑</button>
+  </div>
+</div>
+
+<!-- BOTON FLOTANTE -->
+<button id="btnAsistente" onclick="toggleAsistente()" style="position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:var(--verde);border:none;color:var(--negro);font-size:24px;cursor:pointer;z-index:5001;box-shadow:0 4px 16px rgba(0,230,118,0.4);transition:all 0.2s;display:flex;align-items:center;justify-content:center" title="Asistente de voz">🎤</button>
 </body>
 </html>
     <!-- PROVEEDORES -->
