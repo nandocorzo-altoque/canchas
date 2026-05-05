@@ -181,29 +181,30 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
 
 <nav id="mainNav"></nav>
 
-<div id="jornadaBanner" style="display:none;background:rgba(0,230,118,0.08);border-bottom:1px solid rgba(0,230,118,0.25);padding:8px 24px;display:none;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-  <div style="display:flex;align-items:center;gap:10px">
-    <div style="width:8px;height:8px;border-radius:50%;background:var(--verde);animation:pulse 2s infinite"></div>
-    <span style="font-size:13px;font-weight:500">Jornada activa: <strong id="jornadaFechaLabel" style="color:var(--verde)"></strong></span>
-    <span style="font-size:11px;color:var(--gris-texto);font-family:monospace" id="jornadaHoraInicio"></span>
-  </div>
-  <button data-action="cerrar-jornada" style="background:rgba(255,68,68,0.15);color:var(--rojo);border:1px solid rgba(255,68,68,0.3);border-radius:7px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:500">⏹ Cerrar jornada</button>
-</div>
 <style>
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 </style>
 
 <main>
 <div class="tab active" id="tab-hoy">
-  <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
-    <div>
-      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800" id="hoyTitulo"></div>
-      <div style="font-size:12px;color:var(--gris-texto);font-family:'DM Mono',monospace" id="hoySubtitulo"></div>
+  <!-- NAVEGACION DIA -->
+  <div style="background:var(--gris-card);border:1px solid var(--gris-borde);border-radius:12px;padding:16px 20px;margin-bottom:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button onclick="navegarDia(-1)" style="background:var(--gris-borde);border:none;color:var(--blanco);width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center">‹</button>
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800" id="hoyTitulo"></div>
+          <div style="font-size:12px;font-family:'DM Mono',monospace;margin-top:2px" id="hoyEstadoLabel"></div>
+        </div>
+        <button onclick="navegarDia(1)" id="btnNavSig" style="background:var(--gris-borde);border:none;color:var(--blanco);width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center">›</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button onclick="irAHoy()" class="btn btn-sm btn-ghost">📅 Ir a hoy</button>
+        <button id="btnAbrirJornada" data-action="abrir-jornada" class="btn btn-sm" style="display:none">▶ Abrir jornada</button>
+        <button id="btnCerrarJornada" data-action="cerrar-jornada" class="btn btn-sm btn-danger" style="display:none">⏹ Cerrar jornada</button>
+      </div>
     </div>
-    <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap">
-      <button class="btn btn-sm btn-ghost" onclick="pintarHoy()">↺ Actualizar</button>
-      <button id="btnIniciarJornada" data-action="iniciar-jornada" class="btn btn-sm" style="display:none">▶ Iniciar jornada</button>
-    </div>
+    <div style="font-size:12px;color:var(--gris-texto);margin-top:8px" id="hoySubtitulo"></div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" id="hoyGrid"></div>
 
@@ -715,8 +716,8 @@ var D={
   productos:{},ventasBuffet:{},categorias:{},
   config:{nombreComplejo:'Canchas Al Toque',precioTurno:35000,precioGaseosa:0,adminPass:'admin123',mensajeConfirmacion:'Hola {nombre}! Te recordamos tu turno de hoy a las {hora} en Cancha {cancha}. ¿Confirmás tu asistencia?'},
   socios:{},   // {id:{nombre,pct,base}}
-  jornada:null,     // fecha fijada al iniciar jornada (YYYY-MM-DD)
-  jornadaHora:null,  // hora de inicio de jornada
+  diaActual:null,   // dia navegado (YYYY-MM-DD), null = hoy real
+  jornadas:{},      // {fecha: {abierta, horaInicio, horaCierre}}
   personal:{}, // {id:{nombre,precioPorHora}}
   usuarios:{}, // {id:{usuario,pass,permisos:[tab ids]}}
   _dia:null,_hora:null
@@ -764,7 +765,6 @@ window.irA=function(tab,btn){
   if(btn)btn.classList.add('active');
   if(tab==='hoy')     pintarHoy();
   if(tab==='turnos')  pintarGrilla();
-  actualizarUIJornada();
   if(tab==='caja')    pintarCaja();
   if(tab==='gastos')  pintarGastos();
   if(tab==='socios')  pintarSocios();
@@ -947,11 +947,11 @@ window.toggleAsi=async function(dia,hora){
 
 // ── HOY ───────────────────────────────────────
 function pintarHoy(){
-  var hoyStr=hoy(),pp=hoyStr.split('-'),ds=dSem(hoyStr);
-  document.getElementById('hoyTitulo').textContent=DIAS_N[ds]+' '+pp[2]+'/'+pp[1]+'/'+pp[0];
+  var hoyStr=hoy(),ds=dSem(hoyStr);
+  actualizarHeaderJornada(hoyStr);
   var totalAsi=0;
   [1,2].forEach(function(c){var asi=D.asistencias[c]||{};if(asi[hoyStr])Object.values(asi[hoyStr]).forEach(function(v){if(v)totalAsi++;});});
-  document.getElementById('hoySubtitulo').textContent=totalAsi+' turnos confirmados hoy';
+  document.getElementById('hoySubtitulo').textContent=totalAsi+' turnos confirmados';
   var html='';
   [1,2].forEach(function(c){
     var fij=D.fijos[c]||{},ev=D.eventuales[c]||{},aus=D.ausentes[c]||{},asi=D.asistencias[c]||{};
@@ -1775,9 +1775,10 @@ window.calcPrecioProducto=function(origen){
     }
     document.getElementById('prodPrecioSugerido').textContent=fmt(precio);
   } else {
-    // Initial load - just update display
+    // Initial load (init) or no origin - just update display without changing price
     var sug=Math.round(costoReal*(1+rent/100));
-    document.getElementById('prodPrecioSugerido').textContent=fmt(sug);
+    document.getElementById('prodPrecioSugerido').textContent=fmt(sug||precio);
+    // recalculate ganancia with current precio
   }
 
   var ganancia=precio-costoReal;
@@ -1785,51 +1786,93 @@ window.calcPrecioProducto=function(origen){
 };
 
 
-// ── JORNADA ───────────────────────────────────
-function actualizarUIJornada(){
-  var banner = document.getElementById('jornadaBanner');
-  var btnIniciar = document.getElementById('btnIniciarJornada');
-  var lblFecha = document.getElementById('jornadaFechaLabel');
-  var lblHora = document.getElementById('jornadaHoraInicio');
+// ── JORNADA / NAVEGACION DIA ─────────────────
+function getJornada(fecha){
+  return (D.jornadas||{})[fecha]||null;
+}
+function jornadaAbierta(fecha){
+  var j=getJornada(fecha);
+  return j&&j.abierta;
+}
 
-  if(D.jornada){
-    // Jornada activa
-    if(banner){ banner.style.display='flex'; }
-    if(btnIniciar){ btnIniciar.style.display='none'; }
-    if(lblFecha){ lblFecha.textContent=fmtF(D.jornada); }
-    if(lblHora && D.jornadaHora){ lblHora.textContent='Inicio: '+D.jornadaHora; }
+function navegarDia(dir){
+  var cur=D.diaActual||fechaReal();
+  var d=new Date(cur+'T12:00:00');
+  d.setDate(d.getDate()+dir);
+  var nueva=d.toISOString().split('T')[0];
+  // No permitir ir más allá de hoy real
+  if(nueva>fechaReal()) return;
+  D.diaActual=nueva===fechaReal()?null:nueva;
+  pintarHoy();
+}
+window.navegarDia=navegarDia;
+
+function irAHoy(){
+  D.diaActual=null;
+  pintarHoy();
+}
+window.irAHoy=irAHoy;
+
+function actualizarHeaderJornada(fecha){
+  var dias=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  var d=new Date(fecha+'T12:00:00');
+  var pp=fecha.split('-');
+  var esHoyReal=fecha===fechaReal();
+
+  document.getElementById('hoyTitulo').textContent=dias[d.getDay()]+' '+pp[2]+'/'+pp[1]+'/'+pp[0]+(esHoyReal?' (hoy)':'');
+
+  var btnSig=document.getElementById('btnNavSig');
+  if(btnSig) btnSig.disabled=(fecha>=fechaReal());
+
+  var j=getJornada(fecha);
+  var estadoEl=document.getElementById('hoyEstadoLabel');
+  var btnAbrir=document.getElementById('btnAbrirJornada');
+  var btnCerrar=document.getElementById('btnCerrarJornada');
+  var subEl=document.getElementById('hoySubtitulo');
+
+  if(j&&j.abierta){
+    if(estadoEl){ estadoEl.innerHTML='<span style="color:var(--verde)">● Jornada abierta</span> desde '+j.horaInicio; }
+    if(btnAbrir)  btnAbrir.style.display='none';
+    if(btnCerrar) btnCerrar.style.display='block';
+  } else if(j&&!j.abierta){
+    if(estadoEl){ estadoEl.innerHTML='<span style="color:var(--gris-texto)">✓ Jornada cerrada</span>'+(j.horaCierre?' a las '+j.horaCierre:''); }
+    if(btnAbrir)  btnAbrir.style.display='none';
+    if(btnCerrar) btnCerrar.style.display='none';
   } else {
-    // Sin jornada
-    if(banner){ banner.style.display='none'; }
-    if(btnIniciar){ btnIniciar.style.display='block'; }
+    if(estadoEl){ estadoEl.innerHTML='<span style="color:var(--amarillo)">○ Sin jornada</span>'; }
+    if(btnAbrir)  btnAbrir.style.display= esHoyReal?'block':'none';
+    if(btnCerrar) btnCerrar.style.display='none';
   }
 }
 
-window.iniciarJornada = async function(){
-  var ahora = new Date();
-  var fechaHoy = ahora.toISOString().split('T')[0];
-  var horaAhora = String(ahora.getHours()).padStart(2,'0')+':'+String(ahora.getMinutes()).padStart(2,'0');
-  D.jornada = fechaHoy;
-  D.jornadaHora = horaAhora;
+window.abrirJornada=async function(){
+  var fecha=hoy();
+  var ahora=new Date();
+  var horaAhora=String(ahora.getHours()).padStart(2,'0')+':'+String(ahora.getMinutes()).padStart(2,'0');
+  if(!D.jornadas)D.jornadas={};
+  D.jornadas[fecha]={ abierta:true, horaInicio:horaAhora, horaCierre:null };
   try{
-    await setDoc(doc(db,'config','jornada'),{ fecha: fechaHoy, hora: horaAhora, activa: true });
+    await setDoc(doc(db,'jornadas',fecha),D.jornadas[fecha]);
     setSynced(true);
-    toast('Jornada iniciada — '+fmtF(fechaHoy)+' ✓');
-    actualizarUIJornada();
+    toast('Jornada abierta — '+fmtF(fecha)+' ✓');
     pintarHoy();
-  } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+  }catch(e){toast('Error: '+e.message,'err');setSynced(false);}
 };
 
-window.cerrarJornada = async function(){
-  D.jornada = null;
-  D.jornadaHora = null;
+window.cerrarJornada=async function(){
+  var fecha=hoy();
+  var ahora=new Date();
+  var horaAhora=String(ahora.getHours()).padStart(2,'0')+':'+String(ahora.getMinutes()).padStart(2,'0');
+  if(!D.jornadas)D.jornadas={};
+  if(!D.jornadas[fecha])D.jornadas[fecha]={};
+  D.jornadas[fecha].abierta=false;
+  D.jornadas[fecha].horaCierre=horaAhora;
   try{
-    await setDoc(doc(db,'config','jornada'),{ fecha: null, hora: null, activa: false });
+    await setDoc(doc(db,'jornadas',fecha),D.jornadas[fecha]);
     setSynced(true);
-    toast('Jornada cerrada ✓');
-    actualizarUIJornada();
+    toast('Jornada cerrada — '+fmtF(fecha)+' ✓');
     pintarHoy();
-  } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+  }catch(e){toast('Error: '+e.message,'err');setSynced(false);}
 };
 
 // ── BUFFET ────────────────────────────────────
@@ -2099,24 +2142,6 @@ window.anularVenta=async function(fecha,idx){
 };
 
 // PRODUCTO CRUD
-// Calcula costo real y precio sugerido en tiempo real
-window.calcPrecioProducto=function(){
-  var neto=parseFloat(document.getElementById('prodCostoNeto').value)||0;
-  var iva=parseFloat(document.getElementById('prodIva').value)||0;
-  var impInt=parseFloat(document.getElementById('prodImpInt').value)||0;
-  var rent=parseFloat(document.getElementById('prodRentabilidad').value)||0;
-  var costoReal=neto*(1+iva/100)*(1+impInt/100);
-  var sugerido=costoReal*(1+rent/100);
-  document.getElementById('prodCostoReal').textContent=fmt(Math.round(costoReal));
-  document.getElementById('prodPrecioSugerido').textContent=fmt(Math.round(sugerido));
-  // Solo actualiza precio final si no fue tocado manualmente o si viene de sugerido
-  var precioFinal=parseFloat(document.getElementById('prodPrecio').value)||0;
-  if(rent>0&&(!precioFinal||document.getElementById('prodPrecio').dataset.manual!=='1')){
-    document.getElementById('prodPrecio').value=Math.round(sugerido);
-  }
-  var ganancia=(parseFloat(document.getElementById('prodPrecio').value)||0)-costoReal;
-  document.getElementById('prodGananciaUnit').textContent=fmt(Math.round(ganancia));
-};
 
 window.abrirModalProducto=function(id){
   _editProdId=id;
@@ -2130,7 +2155,7 @@ window.abrirModalProducto=function(id){
     document.getElementById('prodImpInt').value=p.impInt||'';
     document.getElementById('prodRentabilidad').value=p.rentabilidad||'';
     document.getElementById('prodPrecio').value=p.precio||'';
-    document.getElementById('prodPrecio').dataset.manual='1';
+
     document.getElementById('prodStock').value=p.stock||'';
     document.getElementById('prodStockMin').value=p.stockMin||'5';
   } else {
@@ -2142,16 +2167,14 @@ window.abrirModalProducto=function(id){
     document.getElementById('prodImpInt').value='';
     document.getElementById('prodRentabilidad').value='30';
     document.getElementById('prodPrecio').value='';
-    document.getElementById('prodPrecio').dataset.manual='';
+
     document.getElementById('prodStock').value='';
     document.getElementById('prodStockMin').value='5';
     document.getElementById('prodCostoReal').textContent='$0';
     document.getElementById('prodPrecioSugerido').textContent='$0';
     document.getElementById('prodGananciaUnit').textContent='$0';
   }
-  // Marcar precio como manual si el usuario lo edita
-  document.getElementById('prodPrecio').oninput=function(){ calcPrecioProducto('precio'); };
-  if(id&&D.productos[id]) calcPrecioProducto();
+  if(id&&D.productos[id]) calcPrecioProducto('init');
   abrir('ovProducto');
   setTimeout(function(){document.getElementById('prodNombre').focus();},80);
 };
@@ -2229,8 +2252,8 @@ document.addEventListener('click', function(e){
   if(a==='limpiar-carrito')  window.limpiarCarrito();
   if(a==='crear-categoria')  window.crearCategoria();
   if(a==='borrar-cat')       window.borrarCategoria(el.dataset.id);
-  if(a==='iniciar-jornada')  window.iniciarJornada();
-  if(a==='cerrar-jornada')   window.cerrarJornada();
+  if(a==='abrir-jornada')  window.abrirJornada();
+  if(a==='cerrar-jornada') window.cerrarJornada();
 });
 async function cargarTodo(){
   try{
@@ -2244,10 +2267,14 @@ async function cargarTodo(){
     if(prodSnap.exists())D.productos=prodSnap.data().data||{};
     var catSnap=await getDoc(doc(db,'config','categorias'));
     if(catSnap.exists())D.categorias=catSnap.data().data||{};
-    var jorSnap=await getDoc(doc(db,'config','jornada'));
-    if(jorSnap.exists()&&jorSnap.data().activa){
-      D.jornada=jorSnap.data().fecha||null;
-      D.jornadaHora=jorSnap.data().hora||null;
+    // Cargar jornadas de los ultimos 7 dias
+    var hoyReal=fechaReal();
+    for(var ji=0;ji<7;ji++){
+      var dj=new Date(hoyReal+'T12:00:00');
+      dj.setDate(dj.getDate()-ji);
+      var fechaJ=dj.toISOString().split('T')[0];
+      var jSnap=await getDoc(doc(db,'jornadas',fechaJ));
+      if(jSnap.exists()) D.jornadas[fechaJ]=jSnap.data();
     }
     var hoyStr2=hoy();
     var bSnap=await getDoc(doc(db,'buffet',hoyStr2));
@@ -2363,7 +2390,7 @@ document.addEventListener('DOMContentLoaded',function(){
         </div>
         <div>
           <div style="font-size:10px;color:var(--gris-texto);font-family:monospace;margin-bottom:3px">PRECIO FINAL</div>
-          <input type="number" id="prodPrecio" placeholder="0" min="0" oninput="calcPrecioProducto()" style="background:var(--negro);border:1px solid rgba(0,230,118,0.4);border-radius:6px;color:var(--verde);padding:6px 10px;font-family:monospace;font-size:16px;font-weight:700;width:100%;outline:none">
+          <input type="number" id="prodPrecio" placeholder="0" min="0" oninput="calcPrecioProducto('precio')" style="background:var(--negro);border:1px solid rgba(0,230,118,0.4);border-radius:6px;color:var(--verde);padding:6px 10px;font-family:monospace;font-size:16px;font-weight:700;width:100%;outline:none">
         </div>
       </div>
       <div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid var(--gris-borde)">
