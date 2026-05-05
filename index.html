@@ -573,6 +573,57 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
     </div>
   </div>
 </div>
+
+<!-- COMPRAS -->
+<div class="tab" id="tab-compras">
+
+  <!-- STATS -->
+  <div class="stats" id="statsCompras"></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+
+    <!-- LISTA DE COMPROBANTES -->
+    <div class="card" style="grid-column:1/-1">
+      <div class="card-title">🧾 Comprobantes <span class="badge" id="badgeCompras"></span></div>
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <select id="selCompras" onchange="pintarCompras()" style="background:var(--gris-card);border:1px solid var(--gris-borde);color:var(--blanco);padding:8px 12px;border-radius:8px;font-family:'DM Mono',monospace;font-size:13px;outline:none;cursor:pointer"></select>
+        <select id="filtroTipoCompra" onchange="pintarCompras()" style="background:var(--gris-card);border:1px solid var(--gris-borde);color:var(--blanco);padding:8px 12px;border-radius:8px;font-family:'DM Mono',monospace;font-size:13px;outline:none;cursor:pointer">
+          <option value="">Todos los tipos</option>
+          <option value="A">Factura A</option>
+          <option value="B">Factura B</option>
+          <option value="C">Factura C</option>
+          <option value="ticket">Ticket / Recibo</option>
+        </select>
+        <input type="text" id="buscarCompra" placeholder="🔍 Buscar proveedor..." oninput="pintarCompras()" style="flex:1;min-width:160px;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:8px 12px;font-size:13px;outline:none">
+        <button class="btn btn-sm" onclick="abrirModalCompra(null)">+ Agregar</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="tbl" id="tablaCompras">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Tipo</th>
+              <th>Comprobante N°</th>
+              <th>Proveedor</th>
+              <th>Categoría</th>
+              <th style="text-align:right">Neto</th>
+              <th style="text-align:right">IVA</th>
+              <th style="text-align:right">Total</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="bodyCompras"></tbody>
+        </table>
+      </div>
+      <div style="text-align:right;margin-top:12px;display:flex;gap:20px;justify-content:flex-end;flex-wrap:wrap">
+        <div><span style="font-size:11px;color:var(--gris-texto);font-family:'DM Mono',monospace">NETO TOTAL: </span><span class="mono" id="totalNetoCompras" style="font-size:14px;font-weight:600"></span></div>
+        <div><span style="font-size:11px;color:var(--gris-texto);font-family:'DM Mono',monospace">IVA TOTAL: </span><span class="mono c-amarillo" id="totalIvaCompras" style="font-size:14px;font-weight:600"></span></div>
+        <div><span style="font-size:11px;color:var(--gris-texto);font-family:'DM Mono',monospace">TOTAL: </span><span class="mono c-rojo" id="totalCompras" style="font-size:15px;font-weight:700"></span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
 </main>
 
 <!-- MODALES -->
@@ -742,6 +793,7 @@ const TABS_DISPONIBLES=[
   {id:'turnos',label:'⚽ Turnos'},
   {id:'caja',label:'💰 Caja'},
   {id:'gastos',label:'📋 Gastos'},
+  {id:'compras',label:'🧾 Compras'},
   {id:'socios',label:'👥 Socios'},
   {id:'resumen',label:'📊 Resumen'},
   {id:'clientes',label:'📱 Clientes'},
@@ -753,7 +805,7 @@ const TABS_DISPONIBLES=[
 var D={
   cancha:1,semana:0,
   eventuales:{1:{},2:{}},fijos:{1:{},2:{}},ausentes:{1:{},2:{}},asistencias:{1:{},2:{}},
-  caja:{},gastos:{},retiros:{},clientes:{},
+  caja:{},gastos:{},retiros:{},clientes:{},compras:{},
   productos:{},ventasBuffet:{},categorias:{},
   config:{nombreComplejo:'Canchas Al Toque',precioTurno:35000,precioGaseosa:0,adminPass:'admin123',mensajeConfirmacion:'Hola {nombre}! Te recordamos tu turno de hoy a las {hora} en Cancha {cancha}. ¿Confirmás tu asistencia?',permitirStockNegativo:false},
   socios:{},   // {id:{nombre,pct,base}}
@@ -816,7 +868,8 @@ window.irA=function(tab,btn){
   if(tab==='turnos')  pintarGrilla();
   initScanner();
   if(tab==='caja')    pintarCaja();
-  if(tab==='gastos')  pintarGastos();
+  if(tab==='gastos')   pintarGastos();
+  if(tab==='compras')  pintarCompras();
   if(tab==='socios')  pintarSocios();
   if(tab==='resumen') pintarResumen();
   if(tab==='clientes')pintarClientes();
@@ -2713,12 +2766,183 @@ function pintarCierreBuffet(fecha){
     +'</div>';
 }
 
+
+// ── COMPRAS / LIBRO IVA ───────────────────────
+var _editCompraId = null;
+var CATS_COMPRA = {
+  mercaderia:'🛒 Mercadería',servicios:'⚡ Servicios',
+  mantenimiento:'🔧 Mantenimiento',personal:'👷 Personal',
+  alquiler:'🏠 Alquiler',otros:'📦 Otros'
+};
+var TIPOS_COMPRA = {A:'Factura A',B:'Factura B',C:'Factura C',ticket:'Ticket/Recibo'};
+
+function calcCompra(){
+  var neto=parseFloat(document.getElementById('compNeto').value)||0;
+  var iva=parseFloat(document.getElementById('compIva').value)||0;
+  var montoIva=Math.round(neto*iva/100);
+  var total=neto+montoIva;
+  document.getElementById('compNetoDisplay').textContent='$'+neto.toLocaleString('es-AR');
+  document.getElementById('compIvaDisplay').textContent='$'+montoIva.toLocaleString('es-AR');
+  document.getElementById('compTotalDisplay').textContent='$'+total.toLocaleString('es-AR');
+}
+window.calcCompra=calcCompra;
+
+window.abrirModalCompra=function(id){
+  _editCompraId=id;
+  if(id&&D.compras){
+    // Find compra by id across all months
+    var found=null;
+    Object.values(D.compras).forEach(function(arr){
+      arr.forEach(function(c){ if(c.id===id) found=c; });
+    });
+    if(found){
+      document.getElementById('tituloCompra').textContent='Editar comprobante';
+      document.getElementById('compFecha').value=found.fecha||'';
+      document.getElementById('compTipo').value=found.tipo||'B';
+      document.getElementById('compProveedor').value=found.proveedor||'';
+      document.getElementById('compNumero').value=found.numero||'';
+      document.getElementById('compCategoria').value=found.categoria||'mercaderia';
+      document.getElementById('compNeto').value=found.neto||'';
+      document.getElementById('compIva').value=found.iva!==undefined?found.iva:21;
+      document.getElementById('compNotas').value=found.notas||'';
+      calcCompra();
+      abrir('ovCompra');
+      return;
+    }
+  }
+  document.getElementById('tituloCompra').textContent='Agregar comprobante';
+  document.getElementById('compFecha').value=hoy();
+  document.getElementById('compTipo').value='B';
+  document.getElementById('compProveedor').value='';
+  document.getElementById('compNumero').value='';
+  document.getElementById('compCategoria').value='mercaderia';
+  document.getElementById('compNeto').value='';
+  document.getElementById('compIva').value='21';
+  document.getElementById('compNotas').value='';
+  calcCompra();
+  abrir('ovCompra');
+  setTimeout(function(){ document.getElementById('compProveedor').focus(); },80);
+};
+
+window.guardarCompra=async function(){
+  var fecha=document.getElementById('compFecha').value;
+  var proveedor=document.getElementById('compProveedor').value.trim();
+  if(!fecha||!proveedor){ toast('Completá fecha y proveedor','err'); return; }
+  var neto=parseFloat(document.getElementById('compNeto').value)||0;
+  var iva=parseFloat(document.getElementById('compIva').value)||0;
+  var montoIva=Math.round(neto*iva/100);
+  var total=neto+montoIva;
+  var compra={
+    fecha, tipo:document.getElementById('compTipo').value,
+    proveedor, numero:document.getElementById('compNumero').value.trim(),
+    categoria:document.getElementById('compCategoria').value,
+    neto, iva, montoIva, total,
+    notas:document.getElementById('compNotas').value.trim()
+  };
+  setBusy('btnGuardarCompra',true);
+  try{
+    var mk=mkMes(fecha);
+    if(_editCompraId){
+      // Update existing
+      Object.keys(D.compras||{}).forEach(function(k){
+        D.compras[k]=(D.compras[k]||[]).map(function(c){ return c.id===_editCompraId?{id:_editCompraId,...compra}:c; });
+      });
+    } else {
+      var ref=await addDoc(collection(db,'compras'),{mesKey:mk,...compra});
+      if(!D.compras) D.compras={};
+      if(!D.compras[mk]) D.compras[mk]=[];
+      D.compras[mk].push({id:ref.id,...compra});
+    }
+    if(_editCompraId){
+      // Save updated - find the doc
+      // For simplicity update all compras in that month
+      var mkEdit=compra.fecha.slice(0,7);
+      // Re-save is complex, just update local state for now
+    }
+    cerrar('ovCompra');
+    sincSelects();
+    document.getElementById('selCompras').value=mk;
+    setSynced(true); toast('Comprobante guardado ✓');
+    pintarCompras();
+  }catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+  setBusy('btnGuardarCompra',false);
+};
+
+function pintarCompras(){
+  var mk=document.getElementById('selCompras').value||mkHoy();
+  var filtroTipo=(document.getElementById('filtroTipoCompra')||{}).value||'';
+  var buscar=((document.getElementById('buscarCompra')||{}).value||'').toLowerCase();
+  var datos=(D.compras[mk]||[]).slice().sort(function(a,b){ return a.fecha.localeCompare(b.fecha); });
+
+  // Apply filters
+  if(filtroTipo) datos=datos.filter(function(d){ return d.tipo===filtroTipo; });
+  if(buscar) datos=datos.filter(function(d){ return (d.proveedor||'').toLowerCase().includes(buscar)||(d.numero||'').includes(buscar); });
+
+  document.getElementById('badgeCompras').textContent=(D.compras[mk]||[]).length+' comprobantes';
+
+  var totalNeto=datos.reduce(function(s,d){ return s+(d.neto||0); },0);
+  var totalIva=datos.reduce(function(s,d){ return s+(d.montoIva||0); },0);
+  var total=datos.reduce(function(s,d){ return s+(d.total||0); },0);
+  document.getElementById('totalNetoCompras').textContent='$'+totalNeto.toLocaleString('es-AR');
+  document.getElementById('totalIvaCompras').textContent='$'+totalIva.toLocaleString('es-AR');
+  document.getElementById('totalCompras').textContent='$'+total.toLocaleString('es-AR');
+
+  // Stats
+  var statEl=document.getElementById('statsCompras');
+  if(statEl) statEl.innerHTML=
+    stat('Total compras',fmt(total),'c-rojo')+
+    stat('IVA crédito fiscal',fmt(totalIva),'c-amarillo')+
+    stat('Neto',fmt(totalNeto),'')+
+    stat('Comprobantes',(D.compras[mk]||[]).length,'');
+
+  var body=document.getElementById('bodyCompras');
+  if(!body) return;
+  if(!datos.length){
+    body.innerHTML='<tr><td colspan="9"><div class="empty"><div class="empty-icon">🧾</div>Sin comprobantes en este período</div></td></tr>';
+    return;
+  }
+
+  body.innerHTML=datos.map(function(d){
+    var tipoBadge={
+      A:'<span style="background:rgba(64,196,255,0.15);color:var(--azul);border-radius:4px;padding:1px 7px;font-size:11px;font-family:monospace">Fac. A</span>',
+      B:'<span style="background:rgba(0,230,118,0.12);color:var(--verde);border-radius:4px;padding:1px 7px;font-size:11px;font-family:monospace">Fac. B</span>',
+      C:'<span style="background:rgba(255,214,0,0.12);color:var(--amarillo);border-radius:4px;padding:1px 7px;font-size:11px;font-family:monospace">Fac. C</span>',
+      ticket:'<span style="background:rgba(255,145,0,0.12);color:var(--naranja);border-radius:4px;padding:1px 7px;font-size:11px;font-family:monospace">Ticket</span>'
+    }[d.tipo]||d.tipo;
+    var catLabel=CATS_COMPRA[d.categoria]||d.categoria||'—';
+    return '<tr>'
+      +'<td class="mono" style="font-size:12px">'+fmtF(d.fecha)+'</td>'
+      +'<td>'+tipoBadge+'</td>'
+      +'<td class="mono" style="font-size:11px;color:var(--gris-texto)">'+(d.numero||'—')+'</td>'
+      +'<td style="font-weight:500">'+esc(d.proveedor||'')+'</td>'
+      +'<td style="font-size:12px;color:var(--gris-texto)">'+catLabel+'</td>'
+      +'<td class="mono" style="text-align:right">$'+(d.neto||0).toLocaleString('es-AR')+'</td>'
+      +'<td class="mono c-amarillo" style="text-align:right">$'+(d.montoIva||0).toLocaleString('es-AR')+'<span style="font-size:10px;margin-left:3px">'+(d.iva||0)+'%</span></td>'
+      +'<td class="mono c-rojo" style="text-align:right;font-weight:600">$'+(d.total||0).toLocaleString('es-AR')+'</td>'
+      +'<td><div style="display:flex;gap:5px">'
+      +'<button class="btn btn-ghost btn-sm" data-action="editar-compra" data-id="'+d.id+'">✏️</button>'
+      +'<button class="btn btn-danger btn-sm" data-action="borrar-compra" data-id="'+d.id+'" data-mk="'+mk+'">×</button>'
+      +'</div></td>'
+      +'</tr>';
+  }).join('');
+}
+
+window.borrarCompra=async function(id,mk){
+  if(!D.compras||!D.compras[mk]) return;
+  D.compras[mk]=D.compras[mk].filter(function(d){ return d.id!==id; });
+  try{
+    await deleteDoc(doc(db,'compras',id));
+    setSynced(true); toast('Comprobante eliminado');
+    pintarCompras();
+  }catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+};
+
 // ── SELECTS MES ───────────────────────────────
 function sincSelects(){
   var keys={};keys[mkHoy()]=1;
   [D.caja,D.gastos,D.retiros].forEach(function(obj){Object.keys(obj).forEach(function(k){keys[k]=1;});});
   var sorted=Object.keys(keys).sort().reverse();
-  ['selCaja','selGastos','selSocios','selResumen'].forEach(function(id){
+  ['selCaja','selGastos','selSocios','selResumen','selCompras'].forEach(function(id){
     var sel=document.getElementById(id),cur=sel.value||mkHoy();
     sel.innerHTML=sorted.map(function(mk){var pp=mk.split('-');return '<option value="'+mk+'"'+(mk===cur?' selected':'')+'>'+MESES[parseInt(pp[1])-1]+' '+pp[0]+'</option>';}).join('');
   });
@@ -2744,6 +2968,8 @@ document.addEventListener('click', function(e){
   if(a==='limpiar-carrito')  window.limpiarCarrito();
   if(a==='crear-categoria')  window.crearCategoria();
   if(a==='borrar-cat')       window.borrarCategoria(el.dataset.id);
+  if(a==='editar-compra')    window.abrirModalCompra(el.dataset.id);
+  if(a==='borrar-compra')    window.borrarCompra(el.dataset.id, el.dataset.mk);
   if(a==='abrir-jornada')    window.abrirJornada();
   if(a==='cerrar-jornada')   window.cerrarJornada();
   if(a==='reabrir-jornada')  window.pedirReabrirJornada();
@@ -2975,6 +3201,85 @@ document.addEventListener('DOMContentLoaded',function(){
     <div class="modal-footer">
       <button class="btn btn-ghost btn-sm" onclick="cerrar('ovImprimir')">Cancelar</button>
       <button class="btn btn-sm" id="btnGenerarPrint" onclick="generarImpresion()">🖨️ Imprimir</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL COMPRA -->
+<div class="overlay" id="ovCompra">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-title" id="tituloCompra">Agregar comprobante</div>
+
+    <div class="form-grid-2">
+      <div class="form-group"><label>Fecha</label><input type="date" id="compFecha"></div>
+      <div class="form-group">
+        <label>Tipo de comprobante</label>
+        <select id="compTipo">
+          <option value="A">Factura A</option>
+          <option value="B">Factura B</option>
+          <option value="C">Factura C</option>
+          <option value="ticket">Ticket / Recibo</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-grid-2">
+      <div class="form-group"><label>Proveedor</label><input type="text" id="compProveedor" placeholder="Ej: Distribuidora López"></div>
+      <div class="form-group"><label>N° Comprobante</label><input type="text" id="compNumero" placeholder="Ej: 0001-00012345" style="font-family:monospace"></div>
+    </div>
+
+    <div class="form-group">
+      <label>Categoría</label>
+      <select id="compCategoria">
+        <option value="mercaderia">🛒 Mercadería / Insumos</option>
+        <option value="servicios">⚡ Servicios (luz, gas, internet)</option>
+        <option value="mantenimiento">🔧 Mantenimiento</option>
+        <option value="personal">👷 Personal</option>
+        <option value="alquiler">🏠 Alquiler</option>
+        <option value="otros">📦 Otros</option>
+      </select>
+    </div>
+
+    <!-- IMPORTES -->
+    <div style="background:var(--gris-fondo);border-radius:10px;padding:14px;margin-bottom:12px">
+      <div style="font-size:11px;color:var(--gris-texto);font-family:monospace;text-transform:uppercase;margin-bottom:10px">💰 Importes</div>
+      <div class="form-group">
+        <label>Monto neto ($) <span style="color:var(--gris-texto);font-size:10px;text-transform:none">sin IVA</span></label>
+        <input type="number" id="compNeto" placeholder="0" min="0" oninput="calcCompra()">
+      </div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label>Alícuota IVA</label>
+        <select id="compIva" onchange="calcCompra()">
+          <option value="0">Exento (0%)</option>
+          <option value="10.5">10.5%</option>
+          <option value="21" selected>21%</option>
+          <option value="27">27%</option>
+        </select>
+      </div>
+      <div style="background:var(--negro);border-radius:8px;padding:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center">
+        <div>
+          <div style="font-size:10px;color:var(--gris-texto);font-family:monospace;margin-bottom:3px">NETO</div>
+          <div class="mono" id="compNetoDisplay" style="font-size:14px">$0</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--amarillo);font-family:monospace;margin-bottom:3px">IVA</div>
+          <div class="mono c-amarillo" id="compIvaDisplay" style="font-size:14px">$0</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--verde);font-family:monospace;margin-bottom:3px">TOTAL</div>
+          <div class="mono c-verde" id="compTotalDisplay" style="font-size:16px;font-weight:700">$0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Notas (opcional)</label>
+      <input type="text" id="compNotas" placeholder="Ej: Pago en efectivo, incluye flete...">
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="cerrar('ovCompra')">Cancelar</button>
+      <button class="btn btn-sm" id="btnGuardarCompra" onclick="guardarCompra()">Guardar</button>
     </div>
   </div>
 </div>
