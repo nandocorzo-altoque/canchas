@@ -805,7 +805,7 @@ const TABS_DISPONIBLES=[
 var D={
   cancha:1,semana:0,
   eventuales:{1:{},2:{}},fijos:{1:{},2:{}},ausentes:{1:{},2:{}},asistencias:{1:{},2:{}},
-  caja:{},gastos:{},retiros:{},clientes:{},compras:{},
+  caja:{},gastos:{},retiros:{},clientes:{},compras:{},proveedores:{},
   productos:{},ventasBuffet:{},categorias:{},
   config:{nombreComplejo:'Canchas Al Toque',precioTurno:35000,precioGaseosa:0,adminPass:'admin123',mensajeConfirmacion:'Hola {nombre}! Te recordamos tu turno de hoy a las {hora} en Cancha {cancha}. ¿Confirmás tu asistencia?',permitirStockNegativo:false},
   socios:{},   // {id:{nombre,pct,base}}
@@ -869,7 +869,7 @@ window.irA=function(tab,btn){
   initScanner();
   if(tab==='caja')    pintarCaja();
   if(tab==='gastos')   pintarGastos();
-  if(tab==='compras')  pintarCompras();
+  if(tab==='compras')  { pintarCompras(); pintarProveedores(); }
   if(tab==='socios')  pintarSocios();
   if(tab==='resumen') pintarResumen();
   if(tab==='clientes')pintarClientes();
@@ -2814,6 +2814,13 @@ window.abrirModalCompra=function(id){
   document.getElementById('compFecha').value=hoy();
   document.getElementById('compTipo').value='B';
   document.getElementById('compProveedor').value='';
+  document.getElementById('compProvCodigo').value='';
+  document.getElementById('compProvCodigo').style.borderColor='';
+  document.getElementById('facturaArchivo').value='';
+  document.getElementById('ocrStatus').textContent='';
+  document.getElementById('ocrPreview').style.display='none';
+  document.getElementById('productosFacturaSection').style.display='none';
+  _productosDetectados=[];
   document.getElementById('compNumero').value='';
   document.getElementById('compCategoria').value='mercaderia';
   document.getElementById('compNeto').value='';
@@ -2937,6 +2944,360 @@ window.borrarCompra=async function(id,mk){
   }catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
 };
 
+
+// ── PROVEEDORES ───────────────────────────────
+var _editProvId = null;
+var COND_IVA = {RI:'Resp. Inscripto', MT:'Monotributista', EX:'Exento', CF:'Cons. Final', NR:'No Responsable'};
+
+window.abrirModalProveedor=function(id){
+  _editProvId=id;
+  if(id && D.proveedores[id]){
+    var p=D.proveedores[id];
+    document.getElementById('tituloProveedor').textContent='Editar proveedor';
+    document.getElementById('provRazonSocial').value=p.razonSocial||'';
+    document.getElementById('provCuit').value=p.cuit||'';
+    document.getElementById('provCondIva').value=p.condIva||'RI';
+    document.getElementById('provDomicilio').value=p.domicilio||'';
+    document.getElementById('provTelefono').value=p.telefono||'';
+    document.getElementById('provEmail').value=p.email||'';
+    document.getElementById('provRubro').value=p.rubro||'';
+  } else {
+    document.getElementById('tituloProveedor').textContent='Nuevo proveedor';
+    ['provRazonSocial','provCuit','provDomicilio','provTelefono','provEmail','provRubro'].forEach(function(id){ document.getElementById(id).value=''; });
+    document.getElementById('provCondIva').value='RI';
+  }
+  abrir('ovProveedor');
+  setTimeout(function(){ document.getElementById('provRazonSocial').focus(); },80);
+};
+
+
+// Búsqueda rápida de proveedor en modal compra
+
+// ── OCR FACTURAS CON CLAUDE ───────────────────
+var _productosDetectados = []; // [{desc, cantidad, precio, productoId}]
+
+window.procesarFacturaOCR=async function(event){
+  var file=event.target.files[0];
+  if(!file) return;
+  var isPDF=file.type==='application/pdf';
+  var status=document.getElementById('ocrStatus');
+  status.style.color='var(--amarillo)';
+  status.textContent='⏳ '+(isPDF?'Leyendo PDF...':'Analizando imagen...');
+
+  // Preview
+  if(!isPDF){
+    var reader=new FileReader();
+    reader.onload=function(e){
+      document.getElementById('ocrImgPreview').src=e.target.result;
+      document.getElementById('ocrImgPreview').style.display='block';
+      document.getElementById('ocrPdfLabel').style.display='none';
+      document.getElementById('ocrPreview').style.display='block';
+    };
+    reader.readAsDataURL(file);
+  } else {
+    document.getElementById('ocrImgPreview').style.display='none';
+    document.getElementById('ocrPdfLabel').style.display='block';
+    document.getElementById('ocrPreview').style.display='block';
+  }
+
+  // Convert to base64
+  var base64=await new Promise(function(resolve,reject){
+    var r=new FileReader();
+    r.onload=function(){ resolve(r.result.split(',')[1]); };
+    r.onerror=reject;
+    r.readAsDataURL(file);
+  });
+
+  var mediaType=isPDF?'application/pdf':(file.type||'image/jpeg');
+  var prompt='Analiza esta factura de compra argentina. Devuelve SOLO un JSON valido sin markdown con esta estructura exacta: '
+    +'{"fecha":"YYYY-MM-DD","tipo":"A|B|C|ticket","numero":"numero comprobante","proveedor":"razon social emisor","cuit":"XX-XXXXXXXX-X","condIva":"RI|MT|EX|CF|NR","neto":0,"iva":21,"montoIva":0,"total":0,"notas":"",'
+    +'"productos":[{"descripcion":"nombre producto","cantidad":0,"precioUnitario":0,"subtotal":0}]}'
+    +' En productos lista TODOS los items del detalle de la factura con su cantidad y precio. Usa null para datos no encontrados.';
+
+  try{
+    var msgContent=[
+      isPDF
+        ?{type:'document',source:{type:'base64',media_type:'application/pdf',data:base64}}
+        :{type:'image',source:{type:'base64',media_type:mediaType,data:base64}},
+      {type:'text',text:prompt}
+    ];
+
+    var response=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:2000,
+        messages:[{role:'user',content:msgContent}]
+      })
+    });
+
+    if(!response.ok){
+      var errData=await response.json();
+      throw new Error(errData.error&&errData.error.message?errData.error.message:'Error API '+response.status);
+    }
+
+    var data=await response.json();
+    var texto=data.content&&data.content[0]&&data.content[0].text;
+    if(!texto) throw new Error('Respuesta vacía');
+    var clean=texto.replace(/```json|```/g,'').trim();
+    var result=JSON.parse(clean);
+
+    // Fill header fields
+    if(result.fecha) document.getElementById('compFecha').value=result.fecha;
+    if(result.tipo)  document.getElementById('compTipo').value=result.tipo;
+    if(result.numero) document.getElementById('compNumero').value=result.numero;
+    if(result.notas) document.getElementById('compNotas').value=result.notas;
+    if(result.iva!=null) document.getElementById('compIva').value=String(result.iva);
+    if(result.neto!=null) document.getElementById('compNeto').value=result.neto;
+    calcCompra();
+
+    // Fill proveedor
+    if(result.proveedor){
+      document.getElementById('compProveedor').value=result.proveedor;
+      var matchProv=Object.entries(D.proveedores||{}).find(function(e){
+        return (e[1].razonSocial||'').toLowerCase().includes((result.proveedor||'').toLowerCase().slice(0,8));
+      });
+      if(matchProv){
+        document.getElementById('compProvCodigo').value=matchProv[1].codigo||'';
+        document.getElementById('compProvCodigo').style.borderColor='var(--verde)';
+      }
+    }
+
+    // Process productos
+    _productosDetectados=[];
+    if(result.productos&&result.productos.length){
+      result.productos.forEach(function(p){
+        // Try auto-match with inventory
+        var prodInventario=Object.entries(D.productos||{}).find(function(e){
+          var nombre=(e[1].nombre||'').toLowerCase();
+          var desc=(p.descripcion||'').toLowerCase();
+          // Match if description contains product name or vice versa (min 4 chars)
+          if(nombre.length<4||desc.length<4) return false;
+          return desc.includes(nombre.slice(0,Math.min(nombre.length,8)))||
+                 nombre.includes(desc.slice(0,Math.min(desc.length,8)));
+        });
+        _productosDetectados.push({
+          descripcion:p.descripcion||'',
+          cantidad:p.cantidad||0,
+          precioUnitario:p.precioUnitario||0,
+          subtotal:p.subtotal||0,
+          productoId:prodInventario?prodInventario[0]:null,
+          productoNombre:prodInventario?prodInventario[1].nombre:null
+        });
+      });
+      renderProductosFactura();
+      document.getElementById('productosFacturaSection').style.display='block';
+    }
+
+    var campos=[];
+    if(result.fecha) campos.push('fecha');
+    if(result.proveedor) campos.push('proveedor');
+    if(result.numero) campos.push('N°'+result.numero);
+    if(result.neto) campos.push('neto $'+(result.neto||0).toLocaleString('es-AR'));
+    var nProd=result.productos?result.productos.length:0;
+    if(nProd) campos.push(nProd+' productos');
+    status.style.color='var(--verde)';
+    status.textContent='✓ Detecté: '+campos.join(' · ');
+
+  }catch(err){
+    console.error('OCR error:',err);
+    status.style.color='var(--rojo)';
+    status.textContent='✗ Error: '+err.message;
+  }
+};
+
+function renderProductosFactura(){
+  var prods=Object.entries(D.productos||{});
+  var html=_productosDetectados.map(function(p,i){
+    var matchColor=p.productoId?'var(--verde)':'var(--amarillo)';
+    var matchLabel=p.productoId
+      ?'<span style="color:var(--verde);font-size:11px">✓ '+esc(p.productoNombre)+'</span>'
+      :'<span style="color:var(--amarillo);font-size:11px">⚠ Sin match</span>';
+
+    var selectOpts='<option value="">— No actualizar stock —</option>'
+      +prods.map(function(e){ return '<option value="'+e[0]+'"'+(p.productoId===e[0]?' selected':'')+'>'+esc(e[1].nombre)+'</option>'; }).join('');
+
+    return '<div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:8px 10px;background:var(--negro);border-radius:8px;margin-bottom:6px;border:1px solid rgba(64,196,255,0.15)">'
+      +'<div>'
+      +'<div style="font-size:12px;font-weight:500">'+esc(p.descripcion)+'</div>'
+      +'<div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">'
+      +'<select onchange="asignarProductoFactura('+i+',this.value)" style="background:var(--gris-fondo);border:1px solid rgba(64,196,255,0.3);border-radius:5px;color:var(--blanco);padding:3px 6px;font-size:11px;outline:none;max-width:200px">'+selectOpts+'</select>'
+      +matchLabel
+      +'</div>'
+      +'</div>'
+      +'<div style="text-align:center">'
+      +'<div style="font-size:10px;color:var(--gris-texto);font-family:monospace">CANT</div>'
+      +'<input type="number" value="'+p.cantidad+'" min="0" step="1" onchange="_productosDetectados['+i+'].cantidad=parseFloat(this.value)||0" style="width:60px;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:5px;color:var(--azul);padding:4px 6px;font-size:13px;font-weight:600;text-align:center;outline:none;font-family:monospace">'
+      +'</div>'
+      +'<div style="text-align:right">'
+      +'<div style="font-size:10px;color:var(--gris-texto);font-family:monospace">SUBTOTAL</div>'
+      +'<div class="mono" style="font-size:12px">$'+(p.subtotal||0).toLocaleString('es-AR')+'</div>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+
+  document.getElementById('productosFacturaLista').innerHTML=html||'<div style="color:var(--gris-texto);font-size:13px">No se detectaron productos en el detalle.</div>';
+}
+
+window.asignarProductoFactura=function(idx,productoId){
+  _productosDetectados[idx].productoId=productoId||null;
+  if(productoId&&D.productos[productoId]){
+    _productosDetectados[idx].productoNombre=D.productos[productoId].nombre;
+  } else {
+    _productosDetectados[idx].productoNombre=null;
+  }
+};
+
+window.confirmarActualizacionStock=async function(){
+  var actualizaciones=_productosDetectados.filter(function(p){ return p.productoId&&p.cantidad>0; });
+  if(!actualizaciones.length){
+    toast('No hay productos vinculados para actualizar','err');
+    return;
+  }
+  setBusy('btnConfirmarStock',true);
+  try{
+    actualizaciones.forEach(function(p){
+      if(D.productos[p.productoId]){
+        D.productos[p.productoId].stock=(D.productos[p.productoId].stock||0)+p.cantidad;
+      }
+    });
+    await setDoc(doc(db,'config','productos'),{data:D.productos});
+    setSynced(true);
+    var resumen=actualizaciones.map(function(p){ return '+'+p.cantidad+' '+p.productoNombre; }).join(', ');
+    toast('Stock actualizado: '+resumen+' ✓');
+    document.getElementById('productosFacturaSection').style.display='none';
+    _productosDetectados=[];
+  }catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+  setBusy('btnConfirmarStock',false);
+};
+
+window.buscarProvPorCodigo=function(){
+  var codigo=document.getElementById('compProvCodigo').value.trim().toUpperCase();
+  if(!codigo) return;
+  var found=Object.values(D.proveedores||{}).find(function(p){ return (p.codigo||'').toUpperCase()===codigo; });
+  if(found){
+    document.getElementById('compProveedor').value=found.razonSocial;
+    document.getElementById('compProvCodigo').style.borderColor='var(--verde)';
+  } else {
+    document.getElementById('compProvCodigo').style.borderColor=codigo.length>=4?'var(--rojo)':'var(--gris-borde)';
+  }
+};
+
+window.buscarProvPorNombre=function(){
+  var nombre=document.getElementById('compProveedor').value.trim();
+  var found=Object.values(D.proveedores||{}).find(function(p){ return (p.razonSocial||'').toLowerCase()===nombre.toLowerCase(); });
+  if(found && found.codigo){
+    document.getElementById('compProvCodigo').value=found.codigo;
+    document.getElementById('compProvCodigo').style.borderColor='var(--verde)';
+  }
+};
+
+window.guardarProveedor=async function(){
+  var razonSocial=document.getElementById('provRazonSocial').value.trim();
+  if(!razonSocial){ toast('Ingresá la razón social','err'); return; }
+  var prov={
+    razonSocial,
+    cuit:document.getElementById('provCuit').value.trim(),
+    condIva:document.getElementById('provCondIva').value,
+    domicilio:document.getElementById('provDomicilio').value.trim(),
+    telefono:document.getElementById('provTelefono').value.trim(),
+    email:document.getElementById('provEmail').value.trim(),
+    rubro:document.getElementById('provRubro').value.trim()
+  };
+  setBusy('btnGuardarProveedor',true);
+  try{
+    var id=_editProvId||'prov_'+Date.now();
+    if(!D.proveedores) D.proveedores={};
+    if(!_editProvId){
+      // Asignar codigo correlativo P-001, P-002...
+      var existentes=Object.values(D.proveedores).map(function(p){ return parseInt((p.codigo||'P-000').split('-')[1])||0; });
+      var maxCod=existentes.length?Math.max.apply(null,existentes):0;
+      prov.codigo='P-'+String(maxCod+1).padStart(3,'0');
+    } else {
+      prov.codigo=D.proveedores[id].codigo||'P-???';
+    }
+    D.proveedores[id]=prov;
+    await setDoc(doc(db,'config','proveedores'),{data:D.proveedores});
+    cerrar('ovProveedor');
+    setSynced(true);
+    toast((_editProvId?'Proveedor actualizado':'Proveedor creado')+' ✓');
+    pintarProveedores();
+    // Update proveedor select in compra modal
+    poblarSelectProveedores();
+  }catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+  setBusy('btnGuardarProveedor',false);
+};
+
+function poblarSelectProveedores(){
+  // Populate proveedor input with datalist for autocomplete
+  var dl=document.getElementById('proveedoresDatalist');
+  if(!dl) return;
+  dl.innerHTML=Object.values(D.proveedores||{}).map(function(p){
+    return '<option value="'+esc(p.razonSocial)+'" label="'+(p.codigo||'')+' — '+esc(p.razonSocial)+'">';
+  }).join('');
+}
+
+function pintarProveedores(){
+  poblarSelectProveedores();
+  var buscar=((document.getElementById('buscarProveedor')||{}).value||'').toLowerCase();
+  var provs=Object.entries(D.proveedores||{}).filter(function(e){
+    var p=e[1];
+    return !buscar||(p.razonSocial||'').toLowerCase().includes(buscar)||(p.cuit||'').includes(buscar)||(p.codigo||'').toLowerCase().includes(buscar);
+  }).sort(function(a,b){ return (a[1].razonSocial||'').localeCompare(b[1].razonSocial||''); });
+
+  var badge=document.getElementById('badgeProveedores');
+  if(badge) badge.textContent=Object.keys(D.proveedores||{}).length+' proveedores';
+
+  var body=document.getElementById('bodyProveedores');
+  if(!body) return;
+  if(!provs.length){
+    body.innerHTML='<tr><td colspan="7"><div class="empty"><div class="empty-icon">🏢</div>Sin proveedores cargados</div></td></tr>';
+    return;
+  }
+
+  body.innerHTML=provs.map(function(e){
+    var id=e[0], p=e[1];
+    // Count compras for this proveedor
+    var cantCompras=0;
+    Object.values(D.compras||{}).forEach(function(arr){
+      arr.forEach(function(c){ if((c.proveedor||'').toLowerCase()===(p.razonSocial||'').toLowerCase()) cantCompras++; });
+    });
+    var condBadge={
+      RI:'<span style="background:rgba(0,230,118,0.1);color:var(--verde);border-radius:4px;padding:1px 7px;font-size:11px">RI</span>',
+      MT:'<span style="background:rgba(255,214,0,0.1);color:var(--amarillo);border-radius:4px;padding:1px 7px;font-size:11px">MT</span>',
+      EX:'<span style="background:rgba(255,255,255,0.05);color:var(--gris-texto);border-radius:4px;padding:1px 7px;font-size:11px">EX</span>',
+      CF:'<span style="background:rgba(64,196,255,0.1);color:var(--azul);border-radius:4px;padding:1px 7px;font-size:11px">CF</span>',
+      NR:'<span style="background:rgba(255,145,0,0.1);color:var(--naranja);border-radius:4px;padding:1px 7px;font-size:11px">NR</span>'
+    }[p.condIva]||p.condIva||'—';
+
+    return '<tr>'
+      +'<td><span style="background:var(--gris-borde);color:var(--verde);border-radius:4px;padding:2px 8px;font-size:11px;font-family:monospace;font-weight:600">'+(p.codigo||'—')+'</span></td>'
+      +'<td><div style="font-weight:500">'+esc(p.razonSocial||'')+'</div>'+(p.rubro?'<div style="font-size:11px;color:var(--gris-texto)">'+esc(p.rubro)+'</div>':'')+'</td>'
+      +'<td class="mono" style="font-size:12px">'+(p.cuit||'—')+'</td>'
+      +'<td>'+condBadge+'</td>'
+      +'<td style="font-size:12px;color:var(--gris-texto)">'+(p.domicilio||'—')+'</td>'
+      +'<td style="font-size:12px">'+(p.telefono?'<a href="tel:'+p.telefono+'" style="color:var(--azul);text-decoration:none">'+p.telefono+'</a>':'—')+'</td>'
+      +'<td class="mono" style="text-align:center;color:var(--gris-texto)">'+cantCompras+'</td>'
+      +'<td><div style="display:flex;gap:5px">'
+      +'<button class="btn btn-ghost btn-sm" data-action="editar-prov" data-id="'+id+'">✏️</button>'
+      +'<button class="btn btn-danger btn-sm" data-action="borrar-prov" data-id="'+id+'">×</button>'
+      +'</div></td>'
+      +'</tr>';
+  }).join('');
+}
+
+window.borrarProveedor=async function(id){
+  if(!D.proveedores||!D.proveedores[id]) return;
+  var nombre=D.proveedores[id].razonSocial;
+  delete D.proveedores[id];
+  try{
+    await setDoc(doc(db,'config','proveedores'),{data:D.proveedores});
+    setSynced(true); toast('Proveedor "'+nombre+'" eliminado');
+    pintarProveedores();
+  }catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+};
+
 // ── SELECTS MES ───────────────────────────────
 function sincSelects(){
   var keys={};keys[mkHoy()]=1;
@@ -2970,6 +3331,8 @@ document.addEventListener('click', function(e){
   if(a==='borrar-cat')       window.borrarCategoria(el.dataset.id);
   if(a==='editar-compra')    window.abrirModalCompra(el.dataset.id);
   if(a==='borrar-compra')    window.borrarCompra(el.dataset.id, el.dataset.mk);
+  if(a==='editar-prov')      window.abrirModalProveedor(el.dataset.id);
+  if(a==='borrar-prov')      window.borrarProveedor(el.dataset.id);
   if(a==='abrir-jornada')    window.abrirJornada();
   if(a==='cerrar-jornada')   window.cerrarJornada();
   if(a==='reabrir-jornada')  window.pedirReabrirJornada();
@@ -2984,6 +3347,8 @@ async function cargarTodo(){
     if(cliSnap.exists())D.clientes=cliSnap.data().data||{};
     var prodSnap=await getDoc(doc(db,'config','productos'));
     if(prodSnap.exists())D.productos=prodSnap.data().data||{};
+    var provSnap=await getDoc(doc(db,'config','proveedores'));
+    if(provSnap.exists())D.proveedores=provSnap.data().data||{};
     var catSnap=await getDoc(doc(db,'config','categorias'));
     if(catSnap.exists())D.categorias=catSnap.data().data||{};
     // Cargar jornadas de los ultimos 7 dias
@@ -3210,6 +3575,34 @@ document.addEventListener('DOMContentLoaded',function(){
   <div class="modal" style="max-width:500px">
     <div class="modal-title" id="tituloCompra">Agregar comprobante</div>
 
+    <!-- OCR SECTION -->
+    <div style="background:rgba(0,230,118,0.06);border:1px dashed rgba(0,230,118,0.3);border-radius:10px;padding:14px;margin-bottom:14px">
+      <div style="font-size:11px;color:var(--verde);font-family:monospace;margin-bottom:8px;text-transform:uppercase">🤖 Cargar factura con IA (imagen o PDF)</div>
+      <div style="font-size:12px;color:var(--gris-texto);margin-bottom:10px">Claude lee la factura, completa los datos y detecta los productos para actualizar el stock.</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <label style="cursor:pointer">
+          <input type="file" id="facturaArchivo" accept="image/*,application/pdf" style="display:none" onchange="procesarFacturaOCR(event)">
+          <div style="background:var(--gris-borde);color:var(--blanco);border-radius:7px;padding:8px 14px;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px">
+            📁 Elegir imagen o PDF
+          </div>
+        </label>
+        <div id="ocrStatus" style="font-size:12px;color:var(--gris-texto);font-family:monospace;flex:1"></div>
+      </div>
+      <div id="ocrPreview" style="margin-top:8px;display:none">
+        <img id="ocrImgPreview" style="max-height:80px;max-width:200px;border-radius:6px;border:1px solid var(--gris-borde)">
+        <div id="ocrPdfLabel" style="font-size:12px;color:var(--azul);font-family:monospace;display:none">📄 PDF cargado</div>
+      </div>
+    </div>
+
+    <!-- PRODUCTOS DETECTADOS EN FACTURA -->
+    <div id="productosFacturaSection" style="display:none;background:rgba(64,196,255,0.06);border:1px solid rgba(64,196,255,0.2);border-radius:10px;padding:14px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:11px;color:var(--azul);font-family:monospace;text-transform:uppercase">📦 Productos detectados — actualización de stock</div>
+        <button class="btn btn-sm" id="btnConfirmarStock" onclick="confirmarActualizacionStock()" style="background:var(--azul);color:var(--negro)">✓ Confirmar y subir stock</button>
+      </div>
+      <div id="productosFacturaLista"></div>
+    </div>
+
     <div class="form-grid-2">
       <div class="form-group"><label>Fecha</label><input type="date" id="compFecha"></div>
       <div class="form-group">
@@ -3224,7 +3617,11 @@ document.addEventListener('DOMContentLoaded',function(){
     </div>
 
     <div class="form-grid-2">
-      <div class="form-group"><label>Proveedor</label><input type="text" id="compProveedor" placeholder="Ej: Distribuidora López"></div>
+      <div class="form-group"><label>Proveedor</label><div style="display:flex;gap:8px">
+          <input type="text" id="compProvCodigo" placeholder="P-001" style="width:80px;font-family:monospace;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--verde);padding:9px 10px;font-size:14px;outline:none" oninput="buscarProvPorCodigo()" title="Buscar por ID">
+          <input type="text" id="compProveedor" placeholder="Razón social del proveedor" list="proveedoresDatalist" autocomplete="off" style="flex:1" oninput="buscarProvPorNombre()">
+        </div>
+        <datalist id="proveedoresDatalist"></datalist></div>
       <div class="form-group"><label>N° Comprobante</label><input type="text" id="compNumero" placeholder="Ej: 0001-00012345" style="font-family:monospace"></div>
     </div>
 
@@ -3283,5 +3680,53 @@ document.addEventListener('DOMContentLoaded',function(){
     </div>
   </div>
 </div>
+
+<!-- MODAL PROVEEDOR -->
+<div class="overlay" id="ovProveedor">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title" id="tituloProveedor">Nuevo proveedor</div>
+    <div class="form-group"><label>Razón Social</label><input type="text" id="provRazonSocial" placeholder="Ej: Distribuidora López S.A."></div>
+    <div class="form-grid-2">
+      <div class="form-group"><label>CUIT</label><input type="text" id="provCuit" placeholder="20-12345678-9" style="font-family:monospace" maxlength="13"></div>
+      <div class="form-group">
+        <label>Condición frente al IVA</label>
+        <select id="provCondIva">
+          <option value="RI">Responsable Inscripto</option>
+          <option value="MT">Monotributista</option>
+          <option value="EX">Exento</option>
+          <option value="CF">Consumidor Final</option>
+          <option value="NR">No Responsable</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label>Domicilio</label><input type="text" id="provDomicilio" placeholder="Ej: Av. San Martín 1234, Mendoza"></div>
+    <div class="form-grid-2">
+      <div class="form-group"><label>Teléfono</label><input type="tel" id="provTelefono" placeholder="261 4123456"></div>
+      <div class="form-group"><label>Email (opcional)</label><input type="email" id="provEmail" placeholder="proveedor@mail.com"></div>
+    </div>
+    <div class="form-group"><label>Rubro / Descripción (opcional)</label><input type="text" id="provRubro" placeholder="Ej: Distribuidora de bebidas"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="cerrar('ovProveedor')">Cancelar</button>
+      <button class="btn btn-sm" id="btnGuardarProveedor" onclick="guardarProveedor()">Guardar</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
+    <!-- PROVEEDORES -->
+    <div class="card" style="margin-top:20px" id="cardProveedores" style="display:none">
+      <div class="card-title">🏢 Proveedores <span class="badge" id="badgeProveedores"></span></div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <input type="text" id="buscarProveedor" placeholder="🔍 Buscar proveedor..." oninput="pintarProveedores()" style="flex:1;min-width:160px;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:8px 12px;font-size:13px;outline:none">
+        <button class="btn btn-sm" onclick="abrirModalProveedor(null)">+ Proveedor</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="tbl">
+          <thead><tr><th>Razón Social</th><th>CUIT</th><th>Cond. IVA</th><th>Domicilio</th><th>Teléfono</th><th>Compras</th><th></th></tr></thead>
+          <tbody id="bodyProveedores"></tbody>
+        </table>
+      </div>
+    </div>
+
+
+
