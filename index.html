@@ -181,6 +181,18 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
 
 <nav id="mainNav"></nav>
 
+<div id="jornadaBanner" style="display:none;background:rgba(0,230,118,0.08);border-bottom:1px solid rgba(0,230,118,0.25);padding:8px 24px;display:none;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div style="width:8px;height:8px;border-radius:50%;background:var(--verde);animation:pulse 2s infinite"></div>
+    <span style="font-size:13px;font-weight:500">Jornada activa: <strong id="jornadaFechaLabel" style="color:var(--verde)"></strong></span>
+    <span style="font-size:11px;color:var(--gris-texto);font-family:monospace" id="jornadaHoraInicio"></span>
+  </div>
+  <button data-action="cerrar-jornada" style="background:rgba(255,68,68,0.15);color:var(--rojo);border:1px solid rgba(255,68,68,0.3);border-radius:7px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:500">⏹ Cerrar jornada</button>
+</div>
+<style>
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+</style>
+
 <main>
 <div class="tab active" id="tab-hoy">
   <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
@@ -188,7 +200,10 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
       <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800" id="hoyTitulo"></div>
       <div style="font-size:12px;color:var(--gris-texto);font-family:'DM Mono',monospace" id="hoySubtitulo"></div>
     </div>
-    <button class="btn btn-sm btn-ghost" style="margin-left:auto" onclick="pintarHoy()">↺ Actualizar</button>
+    <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap">
+      <button class="btn btn-sm btn-ghost" onclick="pintarHoy()">↺ Actualizar</button>
+      <button id="btnIniciarJornada" data-action="iniciar-jornada" class="btn btn-sm" style="display:none">▶ Iniciar jornada</button>
+    </div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" id="hoyGrid"></div>
 
@@ -410,43 +425,47 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
   <!-- STATS -->
   <div class="stats" id="statsBuffet"></div>
 
+  <!-- VENTA: dos columnas: productos + carrito+ventas -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
 
-    <!-- VENTAS HOY -->
+    <!-- PRODUCTOS -->
+    <div class="card">
+      <div class="card-title">🛒 Productos <span class="badge" id="ventaBadge">$0</span></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <input type="text" id="buscarProductoVenta" placeholder="🔍 Buscar..." oninput="filtrarProductosVenta()" style="flex:1;min-width:120px;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:8px 12px;font-size:13px;outline:none">
+        <select id="filtroCatVenta" onchange="filtrarProductosVenta()" style="background:var(--gris-fondo);border:1px solid var(--gris-borde);color:var(--blanco);padding:8px 12px;border-radius:8px;font-size:13px;outline:none;cursor:pointer">
+          <option value="">Todas</option>
+        </select>
+      </div>
+      <div id="productosVentaLista" style="max-height:400px;overflow-y:auto"></div>
+    </div>
+
+    <!-- CARRITO + VENTAS HOY -->
     <div>
-      <div class="card">
-        <div class="card-title">🛒 Nueva venta
-          <span class="badge" id="ventaBadge">$0</span>
-        </div>
-        <div style="margin-bottom:12px">
-          <input type="text" id="buscarProductoVenta" placeholder="🔍 Buscar producto..." oninput="filtrarProductosVenta()" style="width:100%;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:9px 12px;font-size:13px;outline:none;transition:border-color 0.2s">
-        </div>
-        <div id="productosVentaLista" style="max-height:320px;overflow-y:auto;margin-bottom:14px"></div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">🧾 Carrito</div>
+        <div id="carritoVacio" style="color:var(--gris-texto);font-size:13px;padding:8px 0">Agregá productos desde la izquierda</div>
         <div id="carritoSection" style="display:none">
-          <div style="border-top:1px solid var(--gris-borde);padding-top:12px;margin-bottom:12px">
-            <div style="font-size:11px;color:var(--gris-texto);font-family:monospace;margin-bottom:8px;text-transform:uppercase">Carrito</div>
-            <div id="carritoLista"></div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--gris-borde)">
-              <span style="font-size:13px;font-weight:600">Total</span>
-              <span class="mono c-verde" id="carritoTotal" style="font-size:18px;font-weight:700">$0</span>
-            </div>
+          <div id="carritoLista" style="margin-bottom:12px"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--gris-borde);border-bottom:1px solid var(--gris-borde);margin-bottom:12px">
+            <span style="font-size:14px;font-weight:600">Total</span>
+            <span class="mono c-verde" id="carritoTotal" style="font-size:20px;font-weight:700">$0</span>
           </div>
           <div class="form-group">
             <label>Método de pago</label>
             <select id="ventaMetodoPago">
-              <option value="efectivo">Efectivo</option>
-              <option value="mercadopago">Mercado Pago</option>
-              <option value="transferencia">Transferencia</option>
+              <option value="efectivo">💵 Efectivo</option>
+              <option value="mercadopago">📱 Mercado Pago</option>
+              <option value="transferencia">🏦 Transferencia</option>
             </select>
           </div>
           <div style="display:flex;gap:8px">
-            <button class="btn btn-ghost btn-sm" onclick="limpiarCarrito()">🗑️ Limpiar</button>
+            <button class="btn btn-ghost btn-sm" data-action="limpiar-carrito">🗑️ Limpiar</button>
             <button class="btn btn-sm" id="btnConfirmarVenta" data-action="confirmar-venta" style="flex:1">✓ Confirmar venta</button>
           </div>
         </div>
       </div>
 
-      <!-- VENTAS DEL DIA -->
       <div class="card">
         <div class="card-title">📅 Ventas del día <span class="badge" id="badgeVentasHoy"></span></div>
         <div style="overflow-x:auto">
@@ -462,25 +481,54 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
       </div>
     </div>
 
-    <!-- INVENTARIO -->
-    <div>
-      <div class="card">
-        <div class="card-title">📦 Inventario</div>
-        <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
-          <input type="text" id="buscarProducto" placeholder="🔍 Buscar..." oninput="pintarInventario()" style="flex:1;min-width:140px;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:8px 12px;font-size:13px;outline:none">
-          <select id="filtroCategoria" onchange="pintarInventario()" style="background:var(--gris-fondo);border:1px solid var(--gris-borde);color:var(--blanco);padding:8px 12px;border-radius:8px;font-size:13px;outline:none;cursor:pointer">
-            <option value="">Todas</option>
-            <option value="bebidas">Bebidas</option>
-            <option value="comidas">Comidas</option>
-            <option value="snacks">Snacks</option>
-            <option value="otros">Otros</option>
-          </select>
-          <button class="btn btn-sm" onclick="abrirModalProducto(null)">+ Producto</button>
-        </div>
-        <div id="inventarioLista"></div>
+  </div>
+</div>
+
+<!-- INVENTARIO -->
+<div class="tab" id="tab-inventario">
+  <div class="card">
+    <div class="card-title">📦 Inventario <span class="badge" id="badgeInventario"></span></div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <input type="text" id="buscarProducto" placeholder="🔍 Buscar producto..." oninput="pintarInventarioTab()" style="flex:1;min-width:160px;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:9px 12px;font-size:13px;outline:none">
+      <select id="filtroCategoria" onchange="pintarInventarioTab()" style="background:var(--gris-fondo);border:1px solid var(--gris-borde);color:var(--blanco);padding:9px 12px;border-radius:8px;font-size:13px;outline:none;cursor:pointer">
+        <option value="">Todas las categorías</option>
+      </select>
+      <button class="btn btn-sm" onclick="abrirModalProducto(null)">+ Producto</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="tbl" id="tablaInventario">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>Categoría</th>
+            <th>Neto</th>
+            <th>IVA</th>
+            <th>Imp. Int.</th>
+            <th>Costo real</th>
+            <th>Rentab.</th>
+            <th>Precio venta</th>
+            <th>Margen</th>
+            <th>Stock</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="bodyInventario"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CATEGORIAS -->
+  <div class="card" style="max-width:500px">
+    <div class="card-title">🏷️ Categorías</div>
+    <div id="listaCategorias" style="margin-bottom:14px"></div>
+    <div style="background:var(--gris-fondo);border-radius:10px;padding:14px">
+      <div style="font-size:12px;font-weight:600;margin-bottom:10px">➕ Nueva categoría</div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="nuevaCatNombre" placeholder="Ej: Alfajores" style="flex:1;background:var(--negro);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:9px 12px;font-size:13px;outline:none">
+        <input type="text" id="nuevaCatEmoji" placeholder="🍫" style="width:60px;background:var(--negro);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:9px 12px;font-size:16px;outline:none;text-align:center">
+        <button class="btn btn-sm" id="btnCrearCategoria" data-action="crear-categoria">Agregar</button>
       </div>
     </div>
-
   </div>
 </div>
 </main>
@@ -656,6 +704,7 @@ const TABS_DISPONIBLES=[
   {id:'resumen',label:'📊 Resumen'},
   {id:'clientes',label:'📱 Clientes'},
   {id:'buffet',label:'🍔 Buffet'},
+  {id:'inventario',label:'📦 Inventario'},
   {id:'config',label:'⚙️ Config'}
 ];
 
@@ -663,9 +712,11 @@ var D={
   cancha:1,semana:0,
   eventuales:{1:{},2:{}},fijos:{1:{},2:{}},ausentes:{1:{},2:{}},asistencias:{1:{},2:{}},
   caja:{},gastos:{},retiros:{},clientes:{},
-  productos:{},ventasBuffet:{},
+  productos:{},ventasBuffet:{},categorias:{},
   config:{nombreComplejo:'Canchas Al Toque',precioTurno:35000,precioGaseosa:0,adminPass:'admin123',mensajeConfirmacion:'Hola {nombre}! Te recordamos tu turno de hoy a las {hora} en Cancha {cancha}. ¿Confirmás tu asistencia?'},
   socios:{},   // {id:{nombre,pct,base}}
+  jornada:null,     // fecha fijada al iniciar jornada (YYYY-MM-DD)
+  jornadaHora:null,  // hora de inicio de jornada
   personal:{}, // {id:{nombre,precioPorHora}}
   usuarios:{}, // {id:{usuario,pass,permisos:[tab ids]}}
   _dia:null,_hora:null
@@ -713,6 +764,7 @@ window.irA=function(tab,btn){
   if(btn)btn.classList.add('active');
   if(tab==='hoy')     pintarHoy();
   if(tab==='turnos')  pintarGrilla();
+  actualizarUIJornada();
   if(tab==='caja')    pintarCaja();
   if(tab==='gastos')  pintarGastos();
   if(tab==='socios')  pintarSocios();
@@ -1567,6 +1619,219 @@ function pintarMensajes(){
 }
 
 
+
+// ── INVENTARIO TAB ────────────────────────────
+function getCats(){
+  // Built-in + custom categories
+  var base={bebidas:'🥤 Bebidas',comidas:'🍕 Comidas',snacks:'🍿 Snacks',otros:'📦 Otros'};
+  var custom=D.categorias||{};
+  Object.entries(custom).forEach(function(e){ base[e[0]]=e[1].emoji+' '+e[1].nombre; });
+  return base;
+}
+
+function poblarSelectCats(){
+  var cats=getCats();
+  ['filtroCategoria','filtroCatVenta','prodCategoria'].forEach(function(id){
+    var sel=document.getElementById(id);
+    if(!sel)return;
+    var cur=sel.value;
+    // Keep first option (Todas / first option)
+    var firstOpt=sel.options[0];
+    sel.innerHTML='';
+    sel.appendChild(firstOpt);
+    Object.entries(cats).forEach(function(e){
+      var opt=document.createElement('option');
+      opt.value=e[0]; opt.textContent=e[1];
+      sel.appendChild(opt);
+    });
+    if(cur)sel.value=cur;
+  });
+}
+
+function pintarInventarioTab(){
+  poblarSelectCats();
+  var cats=getCats();
+  var buscar=((document.getElementById('buscarProducto')||{}).value||'').toLowerCase();
+  var filtCat=((document.getElementById('filtroCategoria')||{}).value)||'';
+  var productos=Object.entries(D.productos||{}).filter(function(e){
+    var p=e[1];
+    return (!buscar||(p.nombre||'').toLowerCase().includes(buscar))&&(!filtCat||p.categoria===filtCat);
+  }).sort(function(a,b){return (a[1].nombre||'').localeCompare(b[1].nombre||'');});
+
+  var badge=document.getElementById('badgeInventario');
+  if(badge)badge.textContent=Object.keys(D.productos||{}).length+' productos';
+
+  var body=document.getElementById('bodyInventario');
+  if(!body)return;
+  if(!productos.length){
+    body.innerHTML='<tr><td colspan="11"><div class="empty"><div class="empty-icon">📦</div>Sin productos</div></td></tr>';
+    return;
+  }
+  body.innerHTML=productos.map(function(e){
+    var id=e[0],p=e[1];
+    var catLabel=cats[p.categoria]||p.categoria||'—';
+    var margen=p.costo>0?Math.round(((p.precio-p.costo)/p.costo)*100):0;
+    var stockBajo=(p.stock||0)<=(p.stockMin||5);
+    return '<tr>'
+      +'<td style="font-weight:500">'+esc(p.nombre)+'</td>'
+      +'<td style="font-size:12px">'+catLabel+'</td>'
+      +'<td class="mono">'+fmt(p.costoNeto||0)+'</td>'
+      +'<td class="mono">'+(p.iva||0)+'%</td>'
+      +'<td class="mono">'+(p.impInt||0)+'%</td>'
+      +'<td class="mono c-rojo">'+fmt(p.costo||0)+'</td>'
+      +'<td class="mono c-amarillo">'+(p.rentabilidad||0)+'%</td>'
+      +'<td class="mono c-verde" style="font-weight:600">'+fmt(p.precio||0)+'</td>'
+      +'<td class="mono">'+(margen>0?'+':'')+margen+'%</td>'
+      +'<td class="mono" style="color:'+(stockBajo?'var(--rojo)':'var(--azul)')+'">'+(p.stock||0)+' u'+(stockBajo?' ⚠':'')+'</td>'
+      +'<td><div style="display:flex;gap:5px">'
+      +'<button class="btn btn-ghost btn-sm" data-action="editar-prod" data-id="'+id+'">✏️</button>'
+      +'<button class="btn btn-danger btn-sm" data-action="borrar-prod" data-id="'+id+'">×</button>'
+      +'</div></td>'
+      +'</tr>';
+  }).join('');
+
+  pintarCategoriasConfig();
+}
+
+function pintarCategoriasConfig(){
+  var cats=D.categorias||{};
+  var el=document.getElementById('listaCategorias');
+  if(!el)return;
+  var builtIn=['bebidas','comidas','snacks','otros'];
+  var builtInHtml='<div style="margin-bottom:10px"><div style="font-size:10px;color:var(--gris-texto);font-family:monospace;margin-bottom:6px">CATEGORÍAS BASE</div>'
+    +['🥤 Bebidas','🍕 Comidas','🍿 Snacks','📦 Otros'].map(function(c){
+      return '<span style="background:var(--gris-borde);border-radius:5px;padding:4px 10px;font-size:12px;margin-right:6px;margin-bottom:4px;display:inline-block">'+c+'</span>';
+    }).join('')+'</div>';
+
+  var keys=Object.keys(cats);
+  if(!keys.length){
+    el.innerHTML=builtInHtml+'<div style="color:var(--gris-texto);font-size:13px">Sin categorías personalizadas.</div>';
+    return;
+  }
+  el.innerHTML=builtInHtml+'<div style="font-size:10px;color:var(--gris-texto);font-family:monospace;margin-bottom:6px">PERSONALIZADAS</div>'
+    +keys.map(function(k){
+      var c=cats[k];
+      return '<div class="item-card" style="margin-bottom:6px">'
+        +'<span style="font-size:18px;margin-right:8px">'+c.emoji+'</span>'
+        +'<div class="item-info"><div class="item-nombre">'+esc(c.nombre)+'</div></div>'
+        +'<button class="btn btn-danger btn-sm" data-action="borrar-cat" data-id="'+k+'">× Borrar</button>'
+        +'</div>';
+    }).join('');
+}
+
+window.crearCategoria=async function(){
+  var nombre=document.getElementById('nuevaCatNombre').value.trim();
+  var emoji=document.getElementById('nuevaCatEmoji').value.trim()||'📦';
+  if(!nombre){toast('Ingresá un nombre','err');return;}
+  var id='cat_'+Date.now();
+  if(!D.categorias)D.categorias={};
+  D.categorias[id]={nombre,emoji};
+  try{
+    await setDoc(doc(db,'config','categorias'),{data:D.categorias});
+    document.getElementById('nuevaCatNombre').value='';
+    document.getElementById('nuevaCatEmoji').value='';
+    setSynced(true);toast('Categoría "'+nombre+'" creada ✓');
+    pintarInventarioTab();
+    poblarSelectCats();
+  }catch(e){toast('Error: '+e.message,'err');setSynced(false);}
+};
+
+window.borrarCategoria=async function(id){
+  if(!D.categorias||!D.categorias[id])return;
+  var nombre=D.categorias[id].nombre;
+  delete D.categorias[id];
+  try{
+    await setDoc(doc(db,'config','categorias'),{data:D.categorias});
+    setSynced(true);toast('Categoría eliminada');
+    pintarInventarioTab();poblarSelectCats();
+  }catch(e){toast('Error: '+e.message,'err');setSynced(false);}
+};
+
+// ── PRECIO <-> PORCENTAJE SYNC ────────────────
+window.calcPrecioProducto=function(origen){
+  var neto=parseFloat(document.getElementById('prodCostoNeto').value)||0;
+  var iva=parseFloat(document.getElementById('prodIva').value)||0;
+  var impInt=parseFloat(document.getElementById('prodImpInt').value)||0;
+  var costoReal=neto*(1+iva/100)*(1+impInt/100);
+  document.getElementById('prodCostoReal').textContent=fmt(Math.round(costoReal));
+
+  var rentEl=document.getElementById('prodRentabilidad');
+  var precioEl=document.getElementById('prodPrecio');
+  var rent=parseFloat(rentEl.value)||0;
+  var precio=parseFloat(precioEl.value)||0;
+
+  if(origen==='rent'||origen==='costo'){
+    // rentabilidad -> calcular precio
+    var sugerido=Math.round(costoReal*(1+rent/100));
+    precioEl.value=sugerido;
+    document.getElementById('prodPrecioSugerido').textContent=fmt(sugerido);
+    precio=sugerido;
+  } else if(origen==='precio'){
+    // precio -> calcular rentabilidad
+    if(costoReal>0){
+      var rentCalc=((precio/costoReal)-1)*100;
+      rentEl.value=Math.round(rentCalc*10)/10;
+      rent=rentCalc;
+    }
+    document.getElementById('prodPrecioSugerido').textContent=fmt(precio);
+  } else {
+    // Initial load - just update display
+    var sug=Math.round(costoReal*(1+rent/100));
+    document.getElementById('prodPrecioSugerido').textContent=fmt(sug);
+  }
+
+  var ganancia=precio-costoReal;
+  document.getElementById('prodGananciaUnit').textContent=fmt(Math.round(ganancia));
+};
+
+
+// ── JORNADA ───────────────────────────────────
+function actualizarUIJornada(){
+  var banner = document.getElementById('jornadaBanner');
+  var btnIniciar = document.getElementById('btnIniciarJornada');
+  var lblFecha = document.getElementById('jornadaFechaLabel');
+  var lblHora = document.getElementById('jornadaHoraInicio');
+
+  if(D.jornada){
+    // Jornada activa
+    if(banner){ banner.style.display='flex'; }
+    if(btnIniciar){ btnIniciar.style.display='none'; }
+    if(lblFecha){ lblFecha.textContent=fmtF(D.jornada); }
+    if(lblHora && D.jornadaHora){ lblHora.textContent='Inicio: '+D.jornadaHora; }
+  } else {
+    // Sin jornada
+    if(banner){ banner.style.display='none'; }
+    if(btnIniciar){ btnIniciar.style.display='block'; }
+  }
+}
+
+window.iniciarJornada = async function(){
+  var ahora = new Date();
+  var fechaHoy = ahora.toISOString().split('T')[0];
+  var horaAhora = String(ahora.getHours()).padStart(2,'0')+':'+String(ahora.getMinutes()).padStart(2,'0');
+  D.jornada = fechaHoy;
+  D.jornadaHora = horaAhora;
+  try{
+    await setDoc(doc(db,'config','jornada'),{ fecha: fechaHoy, hora: horaAhora, activa: true });
+    setSynced(true);
+    toast('Jornada iniciada — '+fmtF(fechaHoy)+' ✓');
+    actualizarUIJornada();
+    pintarHoy();
+  } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+};
+
+window.cerrarJornada = async function(){
+  D.jornada = null;
+  D.jornadaHora = null;
+  try{
+    await setDoc(doc(db,'config','jornada'),{ fecha: null, hora: null, activa: false });
+    setSynced(true);
+    toast('Jornada cerrada ✓');
+    actualizarUIJornada();
+    pintarHoy();
+  } catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+};
+
 // ── BUFFET ────────────────────────────────────
 var carrito = {}; // {prodId: {nombre, precio, cantidad}}
 var _editProdId = null;
@@ -1647,9 +1912,14 @@ function pintarProductosVenta(){
   filtrarProductosVenta();
 }
 function filtrarProductosVenta(){
+  poblarSelectCats();
+  var cats=getCats();
   var buscar=((document.getElementById('buscarProductoVenta')||{}).value||'').toLowerCase();
+  var filtCat=((document.getElementById('filtroCatVenta')||{}).value)||'';
   var productos=Object.entries(D.productos||{}).filter(function(e){
-    return (!buscar||(e[1].nombre||'').toLowerCase().includes(buscar))&&(e[1].stock||0)>0;
+    return (!buscar||(e[1].nombre||'').toLowerCase().includes(buscar))
+      &&(e[1].stock||0)>0
+      &&(!filtCat||e[1].categoria===filtCat);
   });
   productos.sort(function(a,b){return (a[1].nombre||'').localeCompare(b[1].nombre||'');});
   var el=document.getElementById('productosVentaLista');
@@ -1665,7 +1935,7 @@ function filtrarProductosVenta(){
   });
   var html='';
   Object.keys(grupos).sort().forEach(function(cat){
-    html+='<div style="font-size:10px;color:var(--gris-texto);font-family:monospace;text-transform:uppercase;margin:8px 0 4px">'+((CATS[cat]||cat))+'</div>';
+    html+='<div style="font-size:10px;color:var(--gris-texto);font-family:monospace;text-transform:uppercase;margin:8px 0 4px">'+(cats[cat]||cat)+'</div>';
     grupos[cat].forEach(function(e){
       var id=e[0],p=e[1];
       var enCarrito=carrito[id]?carrito[id].cantidad:0;
@@ -1699,8 +1969,15 @@ function actualizarCarrito(){
   var seccion=document.getElementById('carritoSection');
   var badge=document.getElementById('ventaBadge');
   if(!seccion)return;
-  if(!items.length){seccion.style.display='none';if(badge)badge.textContent='$0';return;}
+  var vacio=document.getElementById('carritoVacio');
+  if(!items.length){
+    seccion.style.display='none';
+    if(vacio)vacio.style.display='block';
+    if(badge)badge.textContent='$0';
+    return;
+  }
   seccion.style.display='block';
+  if(vacio)vacio.style.display='none';
   var total=items.reduce(function(s,e){return s+e[1].precio*e[1].cantidad;},0);
   if(badge)badge.textContent=fmt(total);
   var listaEl=document.getElementById('carritoLista');
@@ -1736,9 +2013,10 @@ window.confirmarVenta=async function(){
 
   setBusy('btnConfirmarVenta',true);
   try{
-    var metodo=document.getElementById('ventaMetodoPago').value||'efectivo';
-    var total=items.reduce(function(s,e){return s+e[1].precio*e[1].cantidad;},0);
-    var ganancia=items.reduce(function(s,e){return s+(e[1].precio-(e[1].costo||0))*e[1].cantidad;},0);
+    var metodoEl=document.getElementById('ventaMetodoPago');
+    var metodo=metodoEl?metodoEl.value:'efectivo';
+    var total=items.reduce(function(s,e){return s+(e[1].precio||0)*(e[1].cantidad||0);},0);
+    var ganancia=items.reduce(function(s,e){return s+((e[1].precio||0)-(e[1].costo||0))*(e[1].cantidad||0);},0);
     var ahora=new Date();
     var hora=String(ahora.getHours()).padStart(2,'0')+':'+String(ahora.getMinutes()).padStart(2,'0');
     var hoyStr=hoy();
@@ -1872,10 +2150,7 @@ window.abrirModalProducto=function(id){
     document.getElementById('prodGananciaUnit').textContent='$0';
   }
   // Marcar precio como manual si el usuario lo edita
-  document.getElementById('prodPrecio').oninput=function(){
-    this.dataset.manual='1';
-    calcPrecioProducto();
-  };
+  document.getElementById('prodPrecio').oninput=function(){ calcPrecioProducto('precio'); };
   if(id&&D.productos[id]) calcPrecioProducto();
   abrir('ovProducto');
   setTimeout(function(){document.getElementById('prodNombre').focus();},80);
@@ -1951,6 +2226,11 @@ document.addEventListener('click', function(e){
   if(a==='copiar-msg')    window.copiarMensaje(el.dataset.mid);
   if(a==='toggle-asi')    window.toggleAsiHoy(el.dataset.cancha, el.dataset.fecha, el.dataset.hora);
   if(a==='confirmar-venta') window.confirmarVenta();
+  if(a==='limpiar-carrito')  window.limpiarCarrito();
+  if(a==='crear-categoria')  window.crearCategoria();
+  if(a==='borrar-cat')       window.borrarCategoria(el.dataset.id);
+  if(a==='iniciar-jornada')  window.iniciarJornada();
+  if(a==='cerrar-jornada')   window.cerrarJornada();
 });
 async function cargarTodo(){
   try{
@@ -1962,6 +2242,13 @@ async function cargarTodo(){
     if(cliSnap.exists())D.clientes=cliSnap.data().data||{};
     var prodSnap=await getDoc(doc(db,'config','productos'));
     if(prodSnap.exists())D.productos=prodSnap.data().data||{};
+    var catSnap=await getDoc(doc(db,'config','categorias'));
+    if(catSnap.exists())D.categorias=catSnap.data().data||{};
+    var jorSnap=await getDoc(doc(db,'config','jornada'));
+    if(jorSnap.exists()&&jorSnap.data().activa){
+      D.jornada=jorSnap.data().fecha||null;
+      D.jornadaHora=jorSnap.data().hora||null;
+    }
     var hoyStr2=hoy();
     var bSnap=await getDoc(doc(db,'buffet',hoyStr2));
     if(bSnap.exists())D.ventasBuffet[hoyStr2]=bSnap.data().ventas||{};
@@ -2039,12 +2326,12 @@ document.addEventListener('DOMContentLoaded',function(){
       <div style="font-size:11px;color:var(--gris-texto);font-family:monospace;text-transform:uppercase;margin-bottom:10px">💰 Costo de factura</div>
       <div class="form-group" style="margin-bottom:10px">
         <label>Precio neto de factura ($)</label>
-        <input type="number" id="prodCostoNeto" placeholder="0" min="0" oninput="calcPrecioProducto()">
+        <input type="number" id="prodCostoNeto" placeholder="0" min="0" oninput="calcPrecioProducto('costo')">
       </div>
       <div class="form-grid-2">
         <div class="form-group" style="margin-bottom:8px">
           <label>IVA</label>
-          <select id="prodIva" onchange="calcPrecioProducto()">
+          <select id="prodIva" onchange="calcPrecioProducto('costo')">
             <option value="0">Exento (0%)</option>
             <option value="10.5">10.5%</option>
             <option value="21" selected>21%</option>
@@ -2053,7 +2340,7 @@ document.addEventListener('DOMContentLoaded',function(){
         </div>
         <div class="form-group" style="margin-bottom:8px">
           <label>Imp. Internos (%)</label>
-          <input type="number" id="prodImpInt" placeholder="0" min="0" max="100" step="0.1" oninput="calcPrecioProducto()">
+          <input type="number" id="prodImpInt" placeholder="0" min="0" max="100" step="0.1" oninput="calcPrecioProducto('costo')">
         </div>
       </div>
       <div style="background:rgba(0,230,118,0.05);border-radius:8px;padding:10px;display:flex;justify-content:space-between;align-items:center">
@@ -2067,7 +2354,7 @@ document.addEventListener('DOMContentLoaded',function(){
       <div style="font-size:11px;color:var(--gris-texto);font-family:monospace;text-transform:uppercase;margin-bottom:10px">🏷️ Precio de venta</div>
       <div class="form-group" style="margin-bottom:10px">
         <label>Rentabilidad (%)</label>
-        <input type="number" id="prodRentabilidad" placeholder="30" min="0" oninput="calcPrecioProducto()">
+        <input type="number" id="prodRentabilidad" placeholder="30" min="0" oninput="calcPrecioProducto('rent')">
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;background:rgba(0,230,118,0.05);border-radius:8px;padding:10px">
         <div>
