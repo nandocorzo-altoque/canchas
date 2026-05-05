@@ -991,7 +991,8 @@ function pintarHoy(){
     +'<div style="font-family:Syne,sans-serif;font-size:28px;font-weight:800;color:var(--verde)">'+totalAsi+'</div></div>'
     +'<button class="btn" onclick="abrirCierreDia()">💰 Registrar caja del día</button>'
     +'</div></div>';
-  document.getElementById('hoyGrid').innerHTML=html;
+  var hoyGridEl=document.getElementById('hoyGrid');
+  if(hoyGridEl) hoyGridEl.innerHTML=html;
   pintarMensajes();
 }
 
@@ -1814,35 +1815,33 @@ function irAHoy(){
 window.irAHoy=irAHoy;
 
 function actualizarHeaderJornada(fecha){
-  var dias=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-  var d=new Date(fecha+'T12:00:00');
-  var pp=fecha.split('-');
-  var esHoyReal=fecha===fechaReal();
-
-  document.getElementById('hoyTitulo').textContent=dias[d.getDay()]+' '+pp[2]+'/'+pp[1]+'/'+pp[0]+(esHoyReal?' (hoy)':'');
-
-  var btnSig=document.getElementById('btnNavSig');
-  if(btnSig) btnSig.disabled=(fecha>=fechaReal());
-
-  var j=getJornada(fecha);
-  var estadoEl=document.getElementById('hoyEstadoLabel');
-  var btnAbrir=document.getElementById('btnAbrirJornada');
-  var btnCerrar=document.getElementById('btnCerrarJornada');
-  var subEl=document.getElementById('hoySubtitulo');
-
-  if(j&&j.abierta){
-    if(estadoEl){ estadoEl.innerHTML='<span style="color:var(--verde)">● Jornada abierta</span> desde '+j.horaInicio; }
-    if(btnAbrir)  btnAbrir.style.display='none';
-    if(btnCerrar) btnCerrar.style.display='block';
-  } else if(j&&!j.abierta){
-    if(estadoEl){ estadoEl.innerHTML='<span style="color:var(--gris-texto)">✓ Jornada cerrada</span>'+(j.horaCierre?' a las '+j.horaCierre:''); }
-    if(btnAbrir)  btnAbrir.style.display='none';
-    if(btnCerrar) btnCerrar.style.display='none';
-  } else {
-    if(estadoEl){ estadoEl.innerHTML='<span style="color:var(--amarillo)">○ Sin jornada</span>'; }
-    if(btnAbrir)  btnAbrir.style.display= esHoyReal?'block':'none';
-    if(btnCerrar) btnCerrar.style.display='none';
-  }
+  try{
+    var dias=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    var d=new Date(fecha+'T12:00:00');
+    var pp=fecha.split('-');
+    var esHoyReal=fecha===fechaReal();
+    var tituloEl=document.getElementById('hoyTitulo');
+    if(tituloEl) tituloEl.textContent=dias[d.getDay()]+' '+pp[2]+'/'+pp[1]+'/'+pp[0]+(esHoyReal?' · hoy':'');
+    var btnSig=document.getElementById('btnNavSig');
+    if(btnSig) btnSig.disabled=(fecha>=fechaReal());
+    var j=getJornada(fecha);
+    var estadoEl=document.getElementById('hoyEstadoLabel');
+    var btnAbrir=document.getElementById('btnAbrirJornada');
+    var btnCerrar=document.getElementById('btnCerrarJornada');
+    if(j&&j.abierta){
+      if(estadoEl) estadoEl.innerHTML='<span style="color:var(--verde)">● Jornada abierta</span> desde '+j.horaInicio;
+      if(btnAbrir)  btnAbrir.style.display='none';
+      if(btnCerrar) btnCerrar.style.display='block';
+    } else if(j&&!j.abierta){
+      if(estadoEl) estadoEl.innerHTML='<span style="color:var(--gris-texto)">✓ Jornada cerrada</span>'+(j.horaCierre?' a las '+j.horaCierre:'');
+      if(btnAbrir)  btnAbrir.style.display='none';
+      if(btnCerrar) btnCerrar.style.display='none';
+    } else {
+      if(estadoEl) estadoEl.innerHTML='<span style="color:var(--amarillo)">○ Sin jornada registrada</span>';
+      if(btnAbrir)  btnAbrir.style.display=esHoyReal?'block':'none';
+      if(btnCerrar) btnCerrar.style.display='none';
+    }
+  }catch(err){ console.warn('actualizarHeaderJornada error:', err); }
 }
 
 window.abrirJornada=async function(){
