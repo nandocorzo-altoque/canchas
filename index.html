@@ -191,7 +191,7 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
   <div style="background:var(--gris-card);border:1px solid var(--gris-borde);border-radius:12px;padding:16px 20px;margin-bottom:20px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <div style="display:flex;align-items:center;gap:12px">
-        <button onclick="navegarDia(-1)" style="background:var(--gris-borde);border:none;color:var(--blanco);width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center">‹</button>
+        <button id="btnNavAnt" onclick="navegarDia(-1)" style="background:var(--gris-borde);border:none;color:var(--blanco);width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center">‹</button>
         <div>
           <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800" id="hoyTitulo"></div>
           <div style="font-size:12px;font-family:'DM Mono',monospace;margin-top:2px" id="hoyEstadoLabel"></div>
@@ -1872,7 +1872,6 @@ function navegarDia(dir){
   var limite7str=limite7.toISOString().split('T')[0];
   if(nueva < limite30str || nueva > limite7str) return;
   D.diaActual = nueva===hoyReal ? null : nueva;
-  // Cargar jornada del dia si no esta en cache
   cargarJornadaDia(nueva).then(function(){ pintarHoy(); });
 }
 window.navegarDia=navegarDia;
@@ -1891,8 +1890,15 @@ function actualizarHeaderJornada(fecha){
     var esHoyReal=fecha===fechaReal();
     var tituloEl=document.getElementById('hoyTitulo');
     if(tituloEl) tituloEl.textContent=dias[d.getDay()]+' '+pp[2]+'/'+pp[1]+'/'+pp[0]+(esHoyReal?' · hoy':'');
+    var hoyR=fechaReal();
+    var lim30=new Date(hoyR+'T12:00:00'); lim30.setDate(lim30.getDate()-30);
+    var lim30str=lim30.toISOString().split('T')[0];
+    var lim7=new Date(hoyR+'T12:00:00'); lim7.setDate(lim7.getDate()+7);
+    var lim7str=lim7.toISOString().split('T')[0];
     var btnSig=document.getElementById('btnNavSig');
-    if(btnSig) btnSig.disabled=(fecha>=fechaReal());
+    var btnAnt=document.getElementById('btnNavAnt');
+    if(btnSig){ btnSig.disabled=(fecha>=lim7str); btnSig.style.opacity=fecha>=lim7str?'0.3':'1'; }
+    if(btnAnt){ btnAnt.disabled=(fecha<=lim30str); btnAnt.style.opacity=fecha<=lim30str?'0.3':'1'; }
     var j=getJornada(fecha);
     var estadoEl=document.getElementById('hoyEstadoLabel');
     var btnAbrir=document.getElementById('btnAbrirJornada');
