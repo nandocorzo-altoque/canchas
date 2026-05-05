@@ -222,6 +222,12 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" id="hoyGrid"></div>
 
+  <!-- CIERRE CAJA BUFFET -->
+  <div class="card" id="cierreBuffetCard" style="margin-top:20px;display:none">
+    <div class="card-title">🍔 Cierre de caja — Buffet</div>
+    <div id="cierreBuffetResumen"></div>
+  </div>
+
   <!-- MENSAJES DEL DIA -->
   <div class="card" id="mensajesCard" style="margin-top:20px">
     <div class="card-title">💬 Mensajes de confirmación
@@ -450,6 +456,9 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
 
   <!-- STATS -->
   <div class="stats" id="statsBuffet"></div>
+
+  <!-- ESTADO CAJA BUFFET -->
+  <div id="buffetEstadoCaja" style="margin-bottom:16px"></div>
 
   <!-- VENTA: dos columnas: productos + carrito+ventas -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
@@ -1039,13 +1048,17 @@ function pintarHoy(){
     if(!hayAlgo)html+='<div class="empty" style="padding:20px"><div class="empty-icon">📋</div>Sin turnos hoy</div>';
     html+='</div></div>';
   });
+  var jornadaCerradaFinal=!!(getJornada(hoyStr)&&!getJornada(hoyStr).abierta);
   html+='<div style="grid-column:1/-1"><div style="background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.2);border-radius:12px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
     +'<div><div style="font-size:12px;color:var(--gris-texto);font-family:monospace;margin-bottom:4px">TOTAL ASISTENCIAS HOY</div>'
     +'<div style="font-family:Syne,sans-serif;font-size:28px;font-weight:800;color:var(--verde)">'+totalAsi+'</div></div>'
-    +'<button class="btn" onclick="abrirCierreDia()">💰 Registrar caja del día</button>'
+    +(jornadaCerradaFinal
+      ?'<span style="font-size:12px;color:var(--gris-texto);font-family:monospace;background:var(--gris-borde);padding:8px 14px;border-radius:8px">✓ Jornada cerrada</span>'
+      :'<button class="btn" onclick="abrirCierreDia()">💰 Registrar caja del día</button>')
     +'</div></div>';
   var hoyGridEl=document.getElementById('hoyGrid');
   if(hoyGridEl) hoyGridEl.innerHTML=html;
+  pintarCierreBuffet(hoyStr);
   pintarMensajes();
 }
 
@@ -2062,10 +2075,53 @@ var _editProdId = null;
 var CATS = {bebidas:'🥤 Bebidas', comidas:'🍕 Comidas', snacks:'🍿 Snacks', otros:'📦 Otros'};
 
 function pintarBuffet(){
-  pintarInventario();
+  pintarEstadoCajaBuffet();
   pintarProductosVenta();
   pintarVentasHoy();
   pintarStatsBuffet();
+}
+
+function cajaBuffetAbierta(){
+  var j=getJornada(hoy());
+  // Si no hay jornada registrada, permitir ventas igual
+  if(!j) return true;
+  return !!j.abierta;
+}
+
+function pintarEstadoCajaBuffet(){
+  var el=document.getElementById('buffetEstadoCaja');
+  if(!el) return;
+  var j=getJornada(hoy());
+  var fecha=hoy();
+
+  if(!j){
+    el.innerHTML='<div style="background:rgba(255,214,0,0.08);border:1px solid rgba(255,214,0,0.25);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
+      +'<div><div style="font-size:13px;font-weight:500;color:var(--amarillo)">○ Jornada no iniciada</div>'
+      +'<div style="font-size:11px;color:var(--gris-texto);margin-top:2px">Las ventas se registrarán igual, pero iniciá la jornada desde la pestaña 📅 Hoy</div></div>'
+      +'</div>';
+  } else if(j.abierta){
+    var ventas=D.ventasBuffet[fecha]||[];
+    var totalHoy=ventas.reduce(function(s,v){return s+(v.total||0);},0);
+    el.innerHTML='<div style="background:rgba(0,230,118,0.07);border:1px solid rgba(0,230,118,0.25);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
+      +'<div style="display:flex;align-items:center;gap:10px">'
+      +'<div style="width:8px;height:8px;border-radius:50%;background:var(--verde);animation:pulse 2s infinite"></div>'
+      +'<div><div style="font-size:13px;font-weight:500">Caja abierta desde '+j.horaInicio+'</div>'
+      +'<div style="font-size:11px;color:var(--gris-texto);margin-top:1px">'+ventas.length+' ventas · Total: <strong style="color:var(--verde)">$'+totalHoy.toLocaleString('es-AR')+'</strong></div>'
+      +'</div></div>'
+      +'</div>';
+  } else {
+    // Cerrada - bloquear ventas
+    el.innerHTML='<div style="background:rgba(255,68,68,0.07);border:1px solid rgba(255,68,68,0.25);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
+      +'<div><div style="font-size:13px;font-weight:500;color:var(--rojo)">✓ Caja cerrada'+(j.horaCierre?' a las '+j.horaCierre:'')+'</div>'
+      +'<div style="font-size:11px;color:var(--gris-texto);margin-top:2px">La jornada está cerrada. Reabrila desde 📅 Hoy para seguir vendiendo.</div></div>'
+      +'</div>';
+    // Block the products list
+    var lista=document.getElementById('productosVentaLista');
+    if(lista) lista.innerHTML='<div class="empty" style="padding:24px"><div class="empty-icon">🔒</div>Caja cerrada</div>';
+    var carritoSec=document.getElementById('carritoSection');
+    if(carritoSec) carritoSec.style.display='none';
+    return;
+  }
 }
 
 // STATS
@@ -2222,6 +2278,10 @@ function limpiarCarrito(){carrito={};filtrarProductosVenta();}
 window.limpiarCarrito=limpiarCarrito;
 
 window.confirmarVenta=async function(){
+  if(!cajaBuffetAbierta()){
+    toast('La jornada está cerrada — reabrila para vender','err');
+    return;
+  }
   var items=Object.entries(carrito);
   if(!items.length){toast('El carrito está vacío','err');return;}
 
@@ -2584,6 +2644,72 @@ function generarHTMLReporte(fechas,incTurnos,incBuffet,incGastos){
     +'<div class="sub">Período: '+periodoLabel+' · Generado: '+ahora+'</div>'
     +secciones
     +resumen
+    +'</div>';
+}
+
+
+// ── CIERRE CAJA BUFFET ────────────────────────
+function pintarCierreBuffet(fecha){
+  var card=document.getElementById('cierreBuffetCard');
+  var el=document.getElementById('cierreBuffetResumen');
+  if(!card||!el) return;
+
+  var ventas=D.ventasBuffet[fecha]||[];
+  var j=getJornada(fecha);
+  var jornAdaActiva=j&&j.abierta;
+  var jornadaCerrada=j&&!j.abierta;
+
+  // Mostrar solo si hay jornada o ventas
+  if(!j&&!ventas.length){ card.style.display='none'; return; }
+  card.style.display='block';
+
+  if(!ventas.length){
+    el.innerHTML='<div class="empty" style="padding:16px"><div class="empty-icon">🍔</div>Sin ventas registradas'+(jornAdaActiva?' — la caja está abierta':'')+'</div>';
+    return;
+  }
+
+  // Calcular totales por método de pago
+  var metodos={efectivo:0, mercadopago:0, transferencia:0};
+  var totalVentas=0, totalGanancia=0, cantVentas=ventas.length;
+
+  ventas.forEach(function(v){
+    var m=v.metodo||'efectivo';
+    metodos[m]=(metodos[m]||0)+(v.total||0);
+    totalVentas+=v.total||0;
+    totalGanancia+=v.ganancia||0;
+  });
+
+  var metLabels={efectivo:'💵 Efectivo', mercadopago:'📱 Mercado Pago', transferencia:'🏦 Transferencia'};
+  var metRows=Object.entries(metodos).filter(function(e){return e[1]>0;}).map(function(e){
+    var pct=totalVentas>0?Math.round(e[1]/totalVentas*100):0;
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gris-borde)">'
+      +'<div><span style="font-size:13px">'+metLabels[e[0]]+'</span>'
+      +'<span style="font-size:10px;color:var(--gris-texto);font-family:monospace;margin-left:8px">'+pct+'%</span></div>'
+      +'<span class="mono" style="font-weight:600">$'+( e[1]).toLocaleString('es-AR')+'</span>'
+      +'</div>';
+  }).join('');
+
+  var estadoLabel=jornadaCerrada
+    ?'<span style="color:var(--gris-texto);font-size:12px;font-family:monospace">✓ Cerrada'+(j.horaCierre?' a las '+j.horaCierre:'')+'</span>'
+    :'<span style="color:var(--verde);font-size:12px;font-family:monospace">● Abierta</span>';
+
+  el.innerHTML=
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">'
+    +'<div style="font-size:11px;color:var(--gris-texto);font-family:monospace">CAJA: '+estadoLabel+'</div>'
+    +'<div style="font-size:11px;color:var(--gris-texto);font-family:monospace">'+cantVentas+' ventas</div>'
+    +'</div>'
+    // Desglose por método
+    +'<div style="margin-bottom:14px">'+metRows+'</div>'
+    // Totales
+    +'<div style="background:var(--gris-fondo);border-radius:8px;padding:12px">'
+    +'<div style="display:flex;justify-content:space-between;margin-bottom:6px">'
+    +'<span style="font-size:12px;color:var(--gris-texto);font-family:monospace">TOTAL VENTAS</span>'
+    +'<span class="mono c-verde" style="font-size:18px;font-weight:700">$'+totalVentas.toLocaleString('es-AR')+'</span>'
+    +'</div>'
+    +'<div style="display:flex;justify-content:space-between">'
+    +'<span style="font-size:12px;color:var(--gris-texto);font-family:monospace">GANANCIA NETA</span>'
+    +'<span class="mono c-amarillo" style="font-size:14px;font-weight:600">$'+totalGanancia.toLocaleString('es-AR')+'</span>'
+    +'</div>'
     +'</div>';
 }
 
