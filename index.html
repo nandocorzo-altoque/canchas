@@ -730,7 +730,15 @@ var _cierreTurnos=[];
 // ── UTILS ─────────────────────────────────────
 function fmt(n){return '$'+(Number(n)||0).toLocaleString('es-AR');}
 function fmtF(s){if(!s)return'';var p=s.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
-function hoy(){return new Date().toISOString().split('T')[0];}
+function fechaReal(){
+  // Fecha local Argentina (UTC-3)
+  var d=new Date();
+  var local=new Date(d.getTime()-d.getTimezoneOffset()*60000);
+  return local.toISOString().split('T')[0];
+}
+function hoy(){
+  return D.diaActual || fechaReal();
+}
 function mkMes(f){return f.slice(0,7);}
 function mkHoy(){return mkMes(hoy());}
 function dSem(f){var d=new Date(f+'T12:00:00');return (d.getDay()+6)%7;}
@@ -947,7 +955,8 @@ window.toggleAsi=async function(dia,hora){
 
 // ── HOY ───────────────────────────────────────
 function pintarHoy(){
-  var hoyStr=hoy(),ds=dSem(hoyStr);
+  var hoyStr=hoy();
+  var ds=dSem(hoyStr);
   actualizarHeaderJornada(hoyStr);
   var totalAsi=0;
   [1,2].forEach(function(c){var asi=D.asistencias[c]||{};if(asi[hoyStr])Object.values(asi[hoyStr]).forEach(function(v){if(v)totalAsi++;});});
@@ -1801,9 +1810,8 @@ function navegarDia(dir){
   var d=new Date(cur+'T12:00:00');
   d.setDate(d.getDate()+dir);
   var nueva=d.toISOString().split('T')[0];
-  // No permitir ir más allá de hoy real
   if(nueva>fechaReal()) return;
-  D.diaActual=nueva===fechaReal()?null:nueva;
+  D.diaActual = nueva===fechaReal() ? null : nueva;
   pintarHoy();
 }
 window.navegarDia=navegarDia;
