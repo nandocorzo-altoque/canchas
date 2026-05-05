@@ -432,6 +432,12 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
     <!-- PRODUCTOS -->
     <div class="card">
       <div class="card-title">🛒 Productos <span class="badge" id="ventaBadge">$0</span></div>
+      <!-- LECTOR CODIGO DE BARRAS -->
+      <div style="background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.2);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:13px">📷</span>
+        <input type="text" id="scannerInput" placeholder="Escanear código de barras..." style="flex:1;background:transparent;border:none;color:var(--verde);font-family:monospace;font-size:14px;outline:none" autocomplete="off">
+        <span style="font-size:10px;color:var(--gris-texto);font-family:monospace">LECTOR</span>
+      </div>
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
         <input type="text" id="buscarProductoVenta" placeholder="🔍 Buscar..." oninput="filtrarProductosVenta()" style="flex:1;min-width:120px;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:8px 12px;font-size:13px;outline:none">
         <select id="filtroCatVenta" onchange="filtrarProductosVenta()" style="background:var(--gris-fondo);border:1px solid var(--gris-borde);color:var(--blanco);padding:8px 12px;border-radius:8px;font-size:13px;outline:none;cursor:pointer">
@@ -500,6 +506,7 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
       <table class="tbl" id="tablaInventario">
         <thead>
           <tr>
+            <th>Código</th>
             <th>Producto</th>
             <th>Categoría</th>
             <th>Neto</th>
@@ -773,13 +780,15 @@ window.irA=function(tab,btn){
   if(btn)btn.classList.add('active');
   if(tab==='hoy')     pintarHoy();
   if(tab==='turnos')  pintarGrilla();
+  initScanner();
   if(tab==='caja')    pintarCaja();
   if(tab==='gastos')  pintarGastos();
   if(tab==='socios')  pintarSocios();
   if(tab==='resumen') pintarResumen();
   if(tab==='clientes')pintarClientes();
   if(tab==='config')  pintarConfig();
-  if(tab==='buffet')   pintarBuffet();
+  if(tab==='buffet')     pintarBuffet();
+  if(tab==='inventario') pintarInventarioTab();
 };
 
 // ── LOGIN ─────────────────────────────────────
@@ -1683,6 +1692,7 @@ function pintarInventarioTab(){
     var margen=p.costo>0?Math.round(((p.precio-p.costo)/p.costo)*100):0;
     var stockBajo=(p.stock||0)<=(p.stockMin||5);
     return '<tr>'
+      +'<td class="mono" style="font-size:11px;color:var(--gris-texto)">'+esc(p.codigo||'—')+'</td>'
       +'<td style="font-weight:500">'+esc(p.nombre)+'</td>'
       +'<td style="font-size:12px">'+catLabel+'</td>'
       +'<td class="mono">'+fmt(p.costoNeto||0)+'</td>'
@@ -1882,6 +1892,67 @@ window.cerrarJornada=async function(){
   }catch(e){toast('Error: '+e.message,'err');setSynced(false);}
 };
 
+
+// ── SCANNER CODIGO DE BARRAS ─────────────────
+var _scanBuffer = '';
+var _scanTimer = null;
+
+function initScanner(){
+  var input = document.getElementById('scannerInput');
+  if(!input) return;
+  // Auto-focus scanner when buffet tab is active
+  input.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){
+      var codigo = this.value.trim();
+      this.value = '';
+      if(codigo) buscarPorCodigo(codigo);
+    }
+  });
+  // Also listen globally for barcode scanner (fast keystrokes)
+  var buffer = '', timer = null;
+  document.addEventListener('keypress', function(e){
+    // Only when buffet tab is active and no other input is focused
+    var activeTag = document.activeElement ? document.activeElement.tagName : '';
+    var activeId  = document.activeElement ? document.activeElement.id : '';
+    if(activeTag === 'INPUT' && activeId !== 'scannerInput') return;
+    if(activeTag === 'TEXTAREA') return;
+    if(!document.getElementById('tab-buffet').classList.contains('active')) return;
+    clearTimeout(timer);
+    if(e.key === 'Enter'){
+      if(buffer.length > 3) buscarPorCodigo(buffer);
+      buffer = '';
+    } else {
+      buffer += e.key;
+      timer = setTimeout(function(){ buffer = ''; }, 100);
+    }
+  });
+}
+
+function buscarPorCodigo(codigo){
+  var productos = Object.entries(D.productos||{});
+  var match = productos.find(function(e){ return e[1].codigo && e[1].codigo === codigo; });
+  if(match){
+    var id = match[0], p = match[1];
+    if((p.stock||0) <= 0){ toast('Sin stock: '+p.nombre,'err'); return; }
+    cambiarCantidadCarrito(id, 1);
+    toast('✓ '+p.nombre+' agregado','ok');
+    // Flash scanner input
+    var si = document.getElementById('scannerInput');
+    if(si){ si.style.color='var(--verde)'; setTimeout(function(){ si.style.color=''; },500); }
+  } else {
+    toast('Código no encontrado: '+codigo,'err');
+    var si = document.getElementById('scannerInput');
+    if(si){ si.style.color='var(--rojo)'; setTimeout(function(){ si.style.color=''; },500); }
+  }
+}
+window.buscarPorCodigo = buscarPorCodigo;
+
+window.activarEscanerModal = function(){
+  // Focus the scanner input in buffet tab
+  var el = document.getElementById('scannerInput');
+  if(el){ el.focus(); toast('Listo para escanear — apuntá el lector al producto'); }
+};
+
 // ── BUFFET ────────────────────────────────────
 var carrito = {}; // {prodId: {nombre, precio, cantidad}}
 var _editProdId = null;
@@ -1992,7 +2063,7 @@ function filtrarProductosVenta(){
       html+='<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--gris-fondo);border:1px solid '+(enCarrito?'rgba(0,230,118,0.4)':'var(--gris-borde)')+';border-radius:8px;margin-bottom:5px">'
         +'<div style="flex:1;min-width:0">'
         +'<div style="font-size:13px;font-weight:500">'+esc(p.nombre)+'</div>'
-        +'<div style="font-size:11px;color:var(--verde);font-family:monospace">'+fmt(p.precio)+' <span style="color:var(--gris-texto)">· Stock: '+(p.stock||0)+'</span></div>'
+        +'<div style="font-size:11px;color:var(--verde);font-family:monospace">'+fmt(p.precio)+' <span style="color:var(--gris-texto)">· Stock: '+(p.stock||0)+(p.codigo?' · '+esc(p.codigo):'')+'</span></div>'
         +'</div>'
         +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
         +(enCarrito>0?'<button data-action="carrito-menos" data-id="'+id+'" style="background:var(--gris-borde);border:none;color:var(--blanco);width:26px;height:26px;border-radius:5px;cursor:pointer;font-size:14px">−</button>':'')
@@ -2160,6 +2231,7 @@ window.abrirModalProducto=function(id){
     document.getElementById('prodCostoNeto').value=p.costoNeto||p.costo||'';
     document.getElementById('prodIva').value=p.iva!==undefined?p.iva:21;
     document.getElementById('prodImpInt').value=p.impInt||'';
+    document.getElementById('prodCodigo').value=p.codigo||'';
     document.getElementById('prodRentabilidad').value=p.rentabilidad||'';
     document.getElementById('prodPrecio').value=p.precio||'';
 
@@ -2172,6 +2244,7 @@ window.abrirModalProducto=function(id){
     document.getElementById('prodCostoNeto').value='';
     document.getElementById('prodIva').value='21';
     document.getElementById('prodImpInt').value='';
+    document.getElementById('prodCodigo').value='';
     document.getElementById('prodRentabilidad').value='30';
     document.getElementById('prodPrecio').value='';
 
@@ -2196,6 +2269,7 @@ window.guardarProducto=async function(){
   var prod={
     nombre,
     categoria:document.getElementById('prodCategoria').value,
+    codigo:document.getElementById('prodCodigo').value.trim(),
     costoNeto,
     iva,
     impInt,
@@ -2406,10 +2480,17 @@ document.addEventListener('DOMContentLoaded',function(){
       </div>
     </div>
 
-    <!-- STOCK -->
+    <!-- STOCK Y CODIGO -->
     <div class="form-grid-2">
       <div class="form-group"><label>Stock actual (u)</label><input type="number" id="prodStock" placeholder="0" min="0"></div>
       <div class="form-group"><label>Stock mínimo (alerta)</label><input type="number" id="prodStockMin" placeholder="5" min="0"></div>
+    </div>
+    <div class="form-group">
+      <label>Código de barras <span style="color:var(--gris-texto);font-size:10px;text-transform:none">(escaneá o escribí)</span></label>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="prodCodigo" placeholder="Ej: 7790123456789" style="flex:1;font-family:monospace" oninput="this.value=this.value.trim()">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="activarEscanerModal()" title="Activar lector" style="white-space:nowrap">📷 Escanear</button>
+      </div>
     </div>
 
     <div class="modal-footer">
