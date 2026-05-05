@@ -202,6 +202,7 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
         <button onclick="irAHoy()" class="btn btn-sm btn-ghost">📅 Ir a hoy</button>
         <button id="btnAbrirJornada" data-action="abrir-jornada" class="btn btn-sm" style="display:none">▶ Abrir jornada</button>
         <button id="btnCerrarJornada" data-action="cerrar-jornada" class="btn btn-sm btn-danger" style="display:none">⏹ Cerrar jornada</button>
+        <button id="btnReabrirJornada" data-action="reabrir-jornada" class="btn btn-sm btn-ghost" style="display:none">🔓 Reabrir jornada</button>
       </div>
     </div>
     <div style="font-size:12px;color:var(--gris-texto);margin-top:8px" id="hoySubtitulo"></div>
@@ -350,6 +351,16 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
             <label>Mensaje</label>
             <textarea id="cfgMensaje" rows="3" placeholder="Ej: Hola {nombre}! Te confirmamos tu turno de hoy a las {hora}. ¿Venís?" style="width:100%;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;resize:vertical;transition:border-color 0.2s"></textarea>
           </div>
+        </div>
+        <div class="cfg-section">
+          <div class="cfg-section-title">🛒 Ventas de buffet</div>
+          <label class="check-label" id="labelStockNeg">
+            <input type="checkbox" id="cfgStockNegativo" onchange="guardarConfig()">
+            <div>
+              <div style="font-size:13px">Permitir venta con stock negativo</div>
+              <div style="font-size:11px;color:var(--gris-texto);margin-top:2px">Si está activo, se puede vender aunque no haya stock suficiente</div>
+            </div>
+          </label>
         </div>
         <button class="btn" id="btnGuardarConfig" onclick="guardarConfig()" style="width:100%">Guardar configuración</button>
         <div id="cfgMsg" style="font-size:12px;color:var(--verde);margin-top:10px;text-align:center;display:none">✓ Guardado en la nube</div>
@@ -721,7 +732,7 @@ var D={
   eventuales:{1:{},2:{}},fijos:{1:{},2:{}},ausentes:{1:{},2:{}},asistencias:{1:{},2:{}},
   caja:{},gastos:{},retiros:{},clientes:{},
   productos:{},ventasBuffet:{},categorias:{},
-  config:{nombreComplejo:'Canchas Al Toque',precioTurno:35000,precioGaseosa:0,adminPass:'admin123',mensajeConfirmacion:'Hola {nombre}! Te recordamos tu turno de hoy a las {hora} en Cancha {cancha}. ¿Confirmás tu asistencia?'},
+  config:{nombreComplejo:'Canchas Al Toque',precioTurno:35000,precioGaseosa:0,adminPass:'admin123',mensajeConfirmacion:'Hola {nombre}! Te recordamos tu turno de hoy a las {hora} en Cancha {cancha}. ¿Confirmás tu asistencia?',permitirStockNegativo:false},
   socios:{},   // {id:{nombre,pct,base}}
   diaActual:null,   // dia navegado (YYYY-MM-DD), null = hoy real
   jornadas:{},      // {fecha: {abierta, horaInicio, horaCierre}}
@@ -953,6 +964,11 @@ window.pedirBorrarFijo=function(dia,hora,ds){
 };
 
 window.toggleAsi=async function(dia,hora){
+  var j=getJornada(dia);
+  if(j && !j.abierta){
+    toast('La jornada está cerrada — reabrila para modificar asistencias','err');
+    return;
+  }
   var c=D.cancha;
   if(!D.asistencias[c])D.asistencias[c]={};
   if(!D.asistencias[c][dia])D.asistencias[c][dia]={};
@@ -993,7 +1009,12 @@ function pintarHoy(){
         var bg=asistio?'rgba(0,230,118,0.06)':esAusenteSinReem?'rgba(255,214,0,0.04)':'transparent';
         var btn='';
         if(!esAusenteSinReem){
-          btn='<button data-action="toggle-asi" data-cancha="'+c+'" data-fecha="'+hoyStr+'" data-hora="'+hora+'" style="background:'+(asistio?'rgba(0,230,118,0.15)':'transparent')+';border:1px solid '+(asistio?'var(--verde)':'var(--gris-borde)')+';color:'+(asistio?'var(--verde)':'var(--gris-texto)')+';border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;font-weight:'+(asistio?'600':'400')+';white-space:nowrap">'+(asistio?'✓ Asistió':'Confirmar')+'</button>';
+          var jornadaCerrada=!!(getJornada(hoyStr)&&!getJornada(hoyStr).abierta);
+          if(jornadaCerrada){
+            btn='<span style="font-size:11px;color:var(--gris-texto);font-family:monospace">'+(asistio?'✓ Asistió':'—')+'</span>';
+          } else {
+            btn='<button data-action="toggle-asi" data-cancha="'+c+'" data-fecha="'+hoyStr+'" data-hora="'+hora+'" style="background:'+(asistio?'rgba(0,230,118,0.15)':'transparent')+';border:1px solid '+(asistio?'var(--verde)':'var(--gris-borde)')+';color:'+(asistio?'var(--verde)':'var(--gris-texto)')+';border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;font-weight:'+(asistio?'600':'400')+';white-space:nowrap">'+(asistio?'✓ Asistió':'Confirmar')+'</button>';
+          }
         }
         html+='<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:'+bg+';border:1px solid '+border+';border-radius:8px">'
           +'<div style="font-family:monospace;font-size:12px;color:var(--verde);min-width:44px;font-weight:600">'+hora+'</div>'
@@ -1015,6 +1036,12 @@ function pintarHoy(){
 }
 
 window.toggleAsiHoy=async function(c,fecha,hora){
+  // Bloquear si la jornada esta cerrada
+  var j=getJornada(fecha);
+  if(j && !j.abierta){
+    toast('La jornada está cerrada — reabrila para modificar asistencias','err');
+    return;
+  }
   if(!D.asistencias[c])D.asistencias[c]={};
   if(!D.asistencias[c][fecha])D.asistencias[c][fecha]={};
   if(D.asistencias[c][fecha][hora])delete D.asistencias[c][fecha][hora];
@@ -1392,6 +1419,8 @@ function pintarConfig(){
   document.getElementById('cfgNombreComplejo').value=cfg.nombreComplejo||'';
   document.getElementById('cfgPrecioTurno').value=cfg.precioTurno||'';
   document.getElementById('cfgPrecioGaseosa').value=cfg.precioGaseosa||'';
+  var cbStock=document.getElementById('cfgStockNegativo');
+  if(cbStock) cbStock.checked=!!(cfg.permitirStockNegativo);
   document.getElementById('cfgMensaje').value=cfg.mensajeConfirmacion||'';
   var logo=localStorage.getItem('canchas_logo');
   if(logo){document.getElementById('cfgLogoPreview').src=logo;document.getElementById('cfgLogoPreview').style.display='block';document.getElementById('cfgLogoTxt').style.display='none';}
@@ -1403,6 +1432,8 @@ window.guardarConfig=async function(){
   D.config.nombreComplejo=document.getElementById('cfgNombreComplejo').value.trim()||'Canchas Al Toque';
   D.config.precioTurno=parseFloat(document.getElementById('cfgPrecioTurno').value)||0;
   D.config.precioGaseosa=parseFloat(document.getElementById('cfgPrecioGaseosa').value)||0;
+  var cbStockEl=document.getElementById('cfgStockNegativo');
+  D.config.permitirStockNegativo=cbStockEl?cbStockEl.checked:false;
   D.config.mensajeConfirmacion=document.getElementById('cfgMensaje').value.trim()||'Hola {nombre}! Te recordamos tu turno de hoy a las {hora} en Cancha {cancha}. ¿Confirmás tu asistencia?';
   setBusy('btnGuardarConfig',true);
   try{await setDoc(doc(db,'config','precios'),D.config);aplicarConfig();setSynced(true);toast('Guardado ✓');var msg=document.getElementById('cfgMsg');msg.style.display='block';setTimeout(function(){msg.style.display='none';},2500);}catch(e){toast('Error: '+e.message,'err');setSynced(false);}
@@ -1807,6 +1838,17 @@ window.calcPrecioProducto=function(origen){
 
 
 // ── JORNADA / NAVEGACION DIA ─────────────────
+
+// Carga jornada de un dia especifico desde Firebase si no esta en cache
+async function cargarJornadaDia(fecha){
+  if(D.jornadas[fecha]!==undefined) return; // ya cargada
+  try{
+    var snap=await getDoc(doc(db,'jornadas',fecha));
+    D.jornadas[fecha]=snap.exists()?snap.data():null;
+  }catch(e){ D.jornadas[fecha]=null; }
+}
+
+
 function getJornada(fecha){
   return (D.jornadas||{})[fecha]||null;
 }
@@ -1820,9 +1862,18 @@ function navegarDia(dir){
   var d=new Date(cur+'T12:00:00');
   d.setDate(d.getDate()+dir);
   var nueva=d.toISOString().split('T')[0];
-  if(nueva>fechaReal()) return;
-  D.diaActual = nueva===fechaReal() ? null : nueva;
-  pintarHoy();
+  // Limite: 30 dias atras y 7 dias adelante (para planificacion)
+  var hoyReal=fechaReal();
+  var limite30=new Date(hoyReal+'T12:00:00');
+  limite30.setDate(limite30.getDate()-30);
+  var limite30str=limite30.toISOString().split('T')[0];
+  var limite7=new Date(hoyReal+'T12:00:00');
+  limite7.setDate(limite7.getDate()+7);
+  var limite7str=limite7.toISOString().split('T')[0];
+  if(nueva < limite30str || nueva > limite7str) return;
+  D.diaActual = nueva===hoyReal ? null : nueva;
+  // Cargar jornada del dia si no esta en cache
+  cargarJornadaDia(nueva).then(function(){ pintarHoy(); });
 }
 window.navegarDia=navegarDia;
 
@@ -1846,6 +1897,8 @@ function actualizarHeaderJornada(fecha){
     var estadoEl=document.getElementById('hoyEstadoLabel');
     var btnAbrir=document.getElementById('btnAbrirJornada');
     var btnCerrar=document.getElementById('btnCerrarJornada');
+    var btnReabrir=document.getElementById('btnReabrirJornada');
+    if(btnReabrir) btnReabrir.style.display='none';
     if(j&&j.abierta){
       if(estadoEl) estadoEl.innerHTML='<span style="color:var(--verde)">● Jornada abierta</span> desde '+j.horaInicio;
       if(btnAbrir)  btnAbrir.style.display='none';
@@ -1854,6 +1907,9 @@ function actualizarHeaderJornada(fecha){
       if(estadoEl) estadoEl.innerHTML='<span style="color:var(--gris-texto)">✓ Jornada cerrada</span>'+(j.horaCierre?' a las '+j.horaCierre:'');
       if(btnAbrir)  btnAbrir.style.display='none';
       if(btnCerrar) btnCerrar.style.display='none';
+      // Solo admin puede reabrir
+      var btnReabrir=document.getElementById('btnReabrirJornada');
+      if(btnReabrir) btnReabrir.style.display=sesion.esAdmin?'block':'none';
     } else {
       if(estadoEl) estadoEl.innerHTML='<span style="color:var(--amarillo)">○ Sin jornada registrada</span>';
       if(btnAbrir)  btnAbrir.style.display=esHoyReal?'block':'none';
@@ -1876,6 +1932,33 @@ window.abrirJornada=async function(){
   }catch(e){toast('Error: '+e.message,'err');setSynced(false);}
 };
 
+
+window.pedirReabrirJornada=function(){
+  document.getElementById('reabrirPass').value='';
+  document.getElementById('reabrirError').style.display='none';
+  abrir('ovReabrirJornada');
+  setTimeout(function(){document.getElementById('reabrirPass').focus();},80);
+};
+
+window.confirmarReabrir=async function(){
+  var pass=document.getElementById('reabrirPass').value;
+  if(pass!==(D.config.adminPass||'admin123')){
+    document.getElementById('reabrirError').style.display='block';
+    return;
+  }
+  cerrar('ovReabrirJornada');
+  var fecha=hoy();
+  if(!D.jornadas) D.jornadas={};
+  if(!D.jornadas[fecha]) D.jornadas[fecha]={};
+  D.jornadas[fecha].abierta=true;
+  D.jornadas[fecha].horaCierre=null;
+  try{
+    await setDoc(doc(db,'jornadas',fecha),D.jornadas[fecha]);
+    setSynced(true);
+    toast('Jornada reabierta ✓');
+    pintarHoy();
+  }catch(e){toast('Error: '+e.message,'err');setSynced(false);}
+};
 window.cerrarJornada=async function(){
   var fecha=hoy();
   var ahora=new Date();
@@ -2122,14 +2205,16 @@ window.confirmarVenta=async function(){
   var items=Object.entries(carrito);
   if(!items.length){toast('El carrito está vacío','err');return;}
 
-  // Verificar stock (bug fix: operador de precedencia)
-  var sinStock=items.filter(function(e){
-    var prod=D.productos[e[0]];
-    return !prod || (prod.stock||0) < e[1].cantidad;
-  });
-  if(sinStock.length){
-    toast('Sin stock: '+sinStock.map(function(e){return e[1].nombre;}).join(', '),'err');
-    return;
+  // Verificar stock
+  if(!D.config.permitirStockNegativo){
+    var sinStock=items.filter(function(e){
+      var prod=D.productos[e[0]];
+      return !prod || (prod.stock||0) < e[1].cantidad;
+    });
+    if(sinStock.length){
+      toast('Sin stock: '+sinStock.map(function(e){return e[1].nombre;}).join(', '),'err');
+      return;
+    }
   }
 
   setBusy('btnConfirmarVenta',true);
@@ -2333,8 +2418,9 @@ document.addEventListener('click', function(e){
   if(a==='limpiar-carrito')  window.limpiarCarrito();
   if(a==='crear-categoria')  window.crearCategoria();
   if(a==='borrar-cat')       window.borrarCategoria(el.dataset.id);
-  if(a==='abrir-jornada')  window.abrirJornada();
-  if(a==='cerrar-jornada') window.cerrarJornada();
+  if(a==='abrir-jornada')    window.abrirJornada();
+  if(a==='cerrar-jornada')   window.cerrarJornada();
+  if(a==='reabrir-jornada')  window.pedirReabrirJornada();
 });
 async function cargarTodo(){
   try{
@@ -2496,6 +2582,25 @@ document.addEventListener('DOMContentLoaded',function(){
     <div class="modal-footer">
       <button class="btn btn-ghost btn-sm" onclick="cerrar('ovProducto')">Cancelar</button>
       <button class="btn btn-sm" id="btnGuardarProducto" onclick="guardarProducto()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REABRIR JORNADA -->
+<div class="overlay" id="ovReabrirJornada">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-title">🔓 Reabrir jornada</div>
+    <p style="font-size:13px;color:var(--gris-texto);margin-bottom:14px;line-height:1.5">
+      Esta jornada está cerrada. Para reabrirla ingresá la contraseña del administrador.
+    </p>
+    <div class="form-group">
+      <label>Contraseña admin</label>
+      <input type="password" id="reabrirPass" placeholder="••••••••">
+    </div>
+    <div id="reabrirError" style="font-size:12px;color:var(--rojo);display:none;margin-top:-6px;margin-bottom:8px">Contraseña incorrecta</div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="cerrar('ovReabrirJornada')">Cancelar</button>
+      <button class="btn btn-sm" id="btnConfirmarReabrir" onclick="confirmarReabrir()">Reabrir</button>
     </div>
   </div>
 </div>
