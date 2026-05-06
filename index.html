@@ -761,7 +761,7 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
       <div style="font-size:11px;color:var(--verde);font-family:'DM Mono',monospace;margin-bottom:8px">📱 DATOS DEL CLIENTE</div>
       <div class="form-group" style="margin-bottom:8px">
         <label>Buscar cliente existente <span style="color:var(--gris-texto);font-size:10px;text-transform:none">(opcional)</span></label>
-        <input type="text" id="inBuscarCliente" placeholder="Buscar por nombre o ID..." oninput="buscarClienteExistente()" autocomplete="off" style="font-size:13px">
+        <input type="text" id="inBuscarCliente" placeholder="Buscar por nombre o ID..." oninput="buscarClienteExistente()" onblur="setTimeout(function(){var s=document.getElementById('clientesSugeridos');if(s)s.style.display='none';},200)" autocomplete="off" style="font-size:13px">
         <div id="clientesSugeridos" style="display:none;background:var(--negro);border:1px solid var(--gris-borde);border-radius:8px;margin-top:4px;max-height:140px;overflow-y:auto"></div>
       </div>
       <div id="clienteSeleccionado" style="display:none;background:rgba(0,230,118,0.07);border:1px solid rgba(0,230,118,0.25);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12px;display:none;align-items:center;justify-content:space-between">
@@ -4121,7 +4121,7 @@ window.buscarClienteExistente=function(){
   sug.style.display='block';
   sug.innerHTML=clientes.map(function(e){
     var id=e[0],c=e[1];
-    return '<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--gris-borde);font-size:13px" onclick="window.seleccionarClienteExistente(\"'+id+'\")">'
+    return '<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--gris-borde);font-size:13px" onmousedown="event.preventDefault();window.seleccionarClienteExistente(\"'+id+'\")">'
       +'<div style="font-weight:500">'+esc(c.nombre)+'</div>'
       +'<div style="font-size:11px;color:var(--gris-texto);font-family:monospace">'+(c.clienteId||'')+(c.telefono?' · '+c.telefono:'')+'</div>'
       +'</div>';
