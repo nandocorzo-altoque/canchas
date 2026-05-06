@@ -278,7 +278,7 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
     <div class="card-title">Registro diario <span class="badge" id="badgeCaja"></span></div>
     <div style="overflow-x:auto">
       <table class="tbl">
-        <thead><tr><th>Fecha</th><th>Turnos</th><th>− Gaseosas</th><th id="thPersonal">− Personal</th><th>Total</th><th></th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Turnos</th><th>− Gaseosas</th><th>− Personal</th><th>💰 Turnos</th><th>🍔 Buffet</th><th>📋 Gastos</th><th>Neto</th><th></th></tr></thead>
         <tbody id="bodyCaja"></tbody>
       </table>
     </div>
@@ -314,7 +314,14 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
 </div>
 
 <div class="tab" id="tab-resumen">
-  <div class="mes-bar"><select id="selResumen" onchange="pintarResumen()"></select></div>
+  <div class="mes-bar">
+    <select id="resumenPeriodo" onchange="pintarResumen()" style="background:var(--gris-card);border:1px solid var(--gris-borde);color:var(--blanco);padding:8px 12px;border-radius:8px;font-family:'DM Mono',monospace;font-size:13px;outline:none;cursor:pointer">
+      <option value="mes">Mes completo</option>
+      <option value="dia">Día específico</option>
+    </select>
+    <select id="selResumen" onchange="pintarResumen()"></select>
+    <input type="date" id="selResumenDia" style="display:none;background:var(--gris-card);border:1px solid var(--gris-borde);color:var(--blanco);padding:8px 12px;border-radius:8px;font-family:'DM Mono',monospace;font-size:13px;outline:none" onchange="pintarResumen()">
+  </div>
   <div class="stats" id="statsResumen"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
     <div class="card"><div class="card-title">📥 Ingresos</div><div id="resIng"></div></div>
@@ -1004,7 +1011,11 @@ window.irA=function(tab,btn){
   if(tab==='gastos')   pintarGastos();
   if(tab==='compras')  { pintarCompras(); pintarProveedores(); }
   if(tab==='socios')  pintarSocios();
-  if(tab==='resumen') pintarResumen();
+  if(tab==='resumen'){
+    var diaEl=document.getElementById('selResumenDia');
+    if(diaEl&&!diaEl.value) diaEl.value=hoy();
+    pintarResumen();
+  }
   if(tab==='clientes')pintarClientes();
   if(tab==='reservas') pintarReservas();
   if(tab==='config')  pintarConfig();
@@ -1338,18 +1349,91 @@ window.guardarCaja=async function(){
 };
 
 function pintarCaja(){
-  var mk=document.getElementById('selCaja').value,datos=(D.caja[mk]||[]).slice().sort(function(a,b){return a.fecha.localeCompare(b.fecha);});
+  var mk=document.getElementById('selCaja').value;
+  var datos=(D.caja[mk]||[]).slice().sort(function(a,b){return a.fecha.localeCompare(b.fecha);});
+  var gastosMes=D.gastos[mk]||[];
   document.getElementById('badgeCaja').textContent=datos.length+' días';
-  var tT=datos.reduce(function(s,d){return s+d.total;},0),tTu=datos.reduce(function(s,d){return s+d.turnos;},0);
-  var avg=datos.length?Math.round(tT/datos.length):0,max=datos.length?Math.max.apply(null,datos.map(function(d){return d.total;})):0;
-  document.getElementById('statsCaja').innerHTML=stat('Total del mes',fmt(tT),'c-verde')+stat('Turnos',tTu,'')+stat('Promedio / día',fmt(avg),'')+stat('Mejor día',fmt(max),'c-amarillo');
-  if(!datos.length){document.getElementById('bodyCaja').innerHTML='<tr><td colspan="6"><div class="empty"><div class="empty-icon">📋</div>Sin registros</div></td></tr>';return;}
-  var rows=datos.map(function(d){
-    var gL=d.cantGaseosa?d.cantGaseosa+'×'+fmt(d.precioGaseosa):fmt(d.desGas||0);
-    var pL=fmt(d.desPersonal||0);
-    return '<tr><td class="mono">'+fmtF(d.fecha)+'</td><td class="mono" style="text-align:center">'+d.turnos+'</td><td class="mono c-rojo" style="font-size:12px">'+gL+'</td><td class="mono c-rojo" style="font-size:12px">'+pL+'</td><td class="mono c-verde" style="font-weight:600">'+fmt(d.total)+'</td><td><button class="btn btn-danger btn-sm" onclick="borrarCaja(\''+d.id+'\',\''+mkMes(d.fecha)+'\')">× Borrar</button></td></tr>';
+
+  // Calcular totales del mes
+  var tTurnos=datos.reduce(function(s,d){return s+d.total;},0);
+  var tTu=datos.reduce(function(s,d){return s+d.turnos;},0);
+
+  // Buffet del mes
+  var tBuffet=0;
+  Object.keys(D.ventasBuffet||{}).forEach(function(f){
+    if(mkMes(f)===mk){
+      (D.ventasBuffet[f]||[]).forEach(function(v){ tBuffet+=v.total||0; });
+    }
   });
-  rows.push('<tr class="tbl-total"><td colspan="4" style="text-align:right;font-size:11px;color:var(--gris-texto)">TOTAL MES</td><td>'+fmt(tT)+'</td><td></td></tr>');
+
+  // Gastos del mes
+  var tGastos=gastosMes.reduce(function(s,d){return s+(d.monto||0);},0);
+
+  var tTotal=tTurnos+tBuffet;
+  var tNeto=tTotal-tGastos;
+  var avg=datos.length?Math.round(tTurnos/datos.length):0;
+
+  document.getElementById('statsCaja').innerHTML=
+    stat('Turnos del mes',fmt(tTurnos),'c-verde')+
+    stat('Buffet del mes',fmt(tBuffet),'c-azul')+
+    stat('Gastos del mes',fmt(tGastos),'c-rojo')+
+    stat('Neto del mes',fmt(tNeto),tNeto>=0?'c-verde':'c-rojo');
+
+  if(!datos.length){
+    document.getElementById('bodyCaja').innerHTML='<tr><td colspan="7"><div class="empty"><div class="empty-icon">📋</div>Sin registros de caja</div></td></tr>';
+    return;
+  }
+
+  // Agrupar buffet y gastos por fecha para mostrar en tabla
+  var buffetPorFecha={};
+  Object.keys(D.ventasBuffet||{}).forEach(function(f){
+    if(mkMes(f)===mk){
+      var tot=(D.ventasBuffet[f]||[]).reduce(function(s,v){return s+(v.total||0);},0);
+      if(tot) buffetPorFecha[f]=tot;
+    }
+  });
+  var gastosPorFecha={};
+  gastosMes.forEach(function(g){
+    gastosPorFecha[g.fecha]=(gastosPorFecha[g.fecha]||0)+(g.monto||0);
+  });
+
+  // Unir todas las fechas con actividad
+  var fechas={};
+  datos.forEach(function(d){ fechas[d.fecha]=fechas[d.fecha]||{}; fechas[d.fecha].caja=d; });
+  Object.keys(buffetPorFecha).forEach(function(f){ fechas[f]=fechas[f]||{}; fechas[f].buffet=buffetPorFecha[f]; });
+  Object.keys(gastosPorFecha).forEach(function(f){ fechas[f]=fechas[f]||{}; fechas[f].gastos=gastosPorFecha[f]; });
+
+  var fechasOrden=Object.keys(fechas).sort();
+  var rows=fechasOrden.map(function(fecha){
+    var x=fechas[fecha];
+    var d=x.caja;
+    var turnosTotal=d?d.total:0;
+    var buffetTotal=x.buffet||0;
+    var gastosTotal=x.gastos||0;
+    var netoFecha=turnosTotal+buffetTotal-gastosTotal;
+    var gL=d?(d.cantGaseosa?d.cantGaseosa+'×'+fmt(d.precioGaseosa):fmt(d.desGas||0)):'—';
+    var pL=d?fmt(d.desPersonal||0):'—';
+    return '<tr>'
+      +'<td class="mono">'+fmtF(fecha)+'</td>'
+      +'<td class="mono" style="text-align:center">'+(d?d.turnos:'—')+'</td>'
+      +'<td class="mono c-rojo" style="font-size:12px">'+gL+'</td>'
+      +'<td class="mono c-rojo" style="font-size:12px">'+pL+'</td>'
+      +'<td class="mono c-verde" style="font-weight:600">'+fmt(turnosTotal)+'</td>'
+      +'<td class="mono c-azul">'+fmt(buffetTotal)+'</td>'
+      +'<td class="mono c-rojo">'+fmt(gastosTotal)+'</td>'
+      +'<td class="mono" style="font-weight:700;color:'+(netoFecha>=0?'var(--verde)':'var(--rojo)')+'">'+fmt(netoFecha)+'</td>'
+      +'<td>'+(d?'<button class="btn btn-danger btn-sm" data-action="borrar-caja" data-id="'+d.id+'" data-mk="'+mkMes(fecha)+'">× Borrar</button>':'')+'</td>'
+      +'</tr>';
+  });
+
+  rows.push('<tr class="tbl-total">'
+    +'<td colspan="4" style="text-align:right;font-size:11px;color:var(--gris-texto)">TOTAL MES</td>'
+    +'<td>'+fmt(tTurnos)+'</td>'
+    +'<td>'+fmt(tBuffet)+'</td>'
+    +'<td>'+fmt(tGastos)+'</td>'
+    +'<td>'+fmt(tNeto)+'</td>'
+    +'<td></td>'
+    +'</tr>');
   document.getElementById('bodyCaja').innerHTML=rows.join('');
 }
 window.borrarCaja=async function(id,mk){try{await deleteDoc(doc(db,'caja',id));D.caja[mk]=(D.caja[mk]||[]).filter(function(d){return d.id!==id;});setSynced(true);toast('Eliminado');pintarCaja();}catch(e){toast('Error: '+e.message,'err');setSynced(false);}};
@@ -1564,17 +1648,78 @@ function pintarSocios(){
 
 // ── RESUMEN ───────────────────────────────────
 function pintarResumen(){
-  var mk=document.getElementById('selResumen').value,caja=D.caja[mk]||[],gst=D.gastos[mk]||[],ret=D.retiros[mk]||[];
-  var tI=caja.reduce(function(s,d){return s+d.total;},0),tG=gst.reduce(function(s,d){return s+d.monto;},0);
-  var tR=ret.reduce(function(s,r){return s+Object.values(r.montos||{}).reduce(function(s2,m){return s2+m.monto;},0);},0);
-  var saldo=tI-tG-tR;
-  var pp=mk.split('-'),mesNom=MESES[parseInt(pp[1])-1]+' '+pp[0];
-  document.getElementById('statsResumen').innerHTML=stat('Ingresos',fmt(tI),'c-verde')+stat('Gastos',fmt(tG),'c-rojo')+stat('Retiros',fmt(tR),'c-amarillo')+stat('Saldo neto',fmt(saldo),saldo>=0?'c-verde':'c-rojo');
-  document.getElementById('resIng').innerHTML='<div style="margin-bottom:8px;color:var(--gris-texto);font-size:11px;font-family:monospace">'+mesNom+'</div><div class="retiro-item"><span>Días trabajados</span><span class="mono">'+caja.length+'</span></div><div class="retiro-item"><span>Total turnos</span><span class="mono">'+caja.reduce(function(s,d){return s+d.turnos;},0)+'</span></div><div class="retiro-item" style="margin-top:4px"><span style="font-weight:600">TOTAL CAJA</span><span class="mono c-verde" style="font-size:16px">'+fmt(tI)+'</span></div>';
-  var gI=gst.slice(0,6).map(function(g){return '<div class="retiro-item"><span style="font-size:12px">'+g.desc+'</span><span class="mono c-rojo">'+fmt(g.monto)+'</span></div>';}).join('');
-  if(gst.length>6)gI+='<div style="color:var(--gris-texto);font-size:11px;padding:3px 0">+'+(gst.length-6)+' más...</div>';
-  var sociosRet=Object.entries(D.socios||{}).map(function(e){var retirado=ret.reduce(function(s,r){return s+(r.montos&&r.montos[e[0]]?r.montos[e[0]].monto:0);},0);return '<div class="retiro-item"><span>Retiro '+esc(e[1].nombre)+'</span><span class="mono c-azul">'+fmt(retirado)+'</span></div>';}).join('');
-  document.getElementById('resEg').innerHTML='<div style="margin-bottom:8px;color:var(--gris-texto);font-size:11px;font-family:monospace">'+mesNom+'</div>'+gI+sociosRet+'<div class="retiro-item" style="margin-top:4px"><span style="font-weight:600">TOTAL EGRESOS</span><span class="mono c-rojo" style="font-size:16px">'+fmt(tG+tR)+'</span></div>';
+  var periodo=(document.getElementById('resumenPeriodo')||{}).value||'mes';
+  var diaInput=document.getElementById('selResumenDia');
+  var selMes=document.getElementById('selResumen');
+  if(diaInput) diaInput.style.display=periodo==='dia'?'block':'none';
+  if(selMes)   selMes.style.display=periodo==='mes'?'block':'none';
+
+  var mk=selMes?selMes.value:mkHoy();
+  var diaFiltro=periodo==='dia'&&diaInput?diaInput.value||hoy():null;
+  var periodoLabel=diaFiltro?fmtF(diaFiltro):(function(){ var pp=mk.split('-'); return MESES[parseInt(pp[1])-1]+' '+pp[0]; })();
+
+  // Filtrar datos segun periodo
+  function filtrarPorFecha(arr,campo){
+    if(!diaFiltro) return arr.filter(function(d){ return mkMes(d[campo||'fecha'])===mk; });
+    return arr.filter(function(d){ return d[campo||'fecha']===diaFiltro; });
+  }
+
+  var caja=filtrarPorFecha(D.caja[mk]||[],'fecha');
+  var gst=filtrarPorFecha(D.gastos[mk]||[],'fecha');
+  var ret=diaFiltro?[]:D.retiros[mk]||[];
+
+  // Calcular ingresos turnos
+  var tTurnos=caja.reduce(function(s,d){return s+d.total;},0);
+
+  // Calcular buffet
+  var tBuffet=0;
+  if(diaFiltro){
+    (D.ventasBuffet[diaFiltro]||[]).forEach(function(v){ tBuffet+=v.total||0; });
+  } else {
+    Object.keys(D.ventasBuffet||{}).forEach(function(f){
+      if(mkMes(f)===mk)(D.ventasBuffet[f]||[]).forEach(function(v){ tBuffet+=v.total||0; });
+    });
+  }
+
+  var tIngresos=tTurnos+tBuffet;
+  var tGastos=gst.reduce(function(s,d){return s+(d.monto||0);},0);
+  var tRetiros=ret.reduce(function(s,r){return s+Object.values(r.montos||{}).reduce(function(s2,m){return s2+m.monto;},0);},0);
+  var saldo=tIngresos-tGastos-tRetiros;
+
+  document.getElementById('statsResumen').innerHTML=
+    stat('Turnos',fmt(tTurnos),'c-verde')+
+    stat('Buffet',fmt(tBuffet),'c-azul')+
+    stat('Gastos',fmt(tGastos),'c-rojo')+
+    stat('Neto',fmt(saldo),saldo>=0?'c-verde':'c-rojo');
+
+  // Panel ingresos
+  document.getElementById('resIng').innerHTML=
+    '<div style="margin-bottom:8px;color:var(--gris-texto);font-size:11px;font-family:monospace">'+periodoLabel+'</div>'
+    +'<div class="retiro-item"><span>Días con caja</span><span class="mono">'+caja.length+'</span></div>'
+    +'<div class="retiro-item"><span>Total turnos</span><span class="mono">'+caja.reduce(function(s,d){return s+d.turnos;},0)+'</span></div>'
+    +'<div class="retiro-item"><span>Ingresos turnos</span><span class="mono c-verde">'+fmt(tTurnos)+'</span></div>'
+    +'<div class="retiro-item"><span>Ventas buffet</span><span class="mono c-azul">'+fmt(tBuffet)+'</span></div>'
+    +'<div class="retiro-item" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--gris-borde)">'
+    +'<span style="font-weight:600">TOTAL INGRESOS</span>'
+    +'<span class="mono c-verde" style="font-size:16px">'+fmt(tIngresos)+'</span></div>';
+
+  // Panel egresos
+  var gI=gst.slice(0,8).map(function(g){
+    return '<div class="retiro-item"><span style="font-size:12px">'+fmtF(g.fecha)+' · '+esc(g.desc)+'</span><span class="mono c-rojo">'+fmt(g.monto)+'</span></div>';
+  }).join('');
+  if(gst.length>8) gI+='<div style="color:var(--gris-texto);font-size:11px;padding:3px 0">+'+(gst.length-8)+' gastos más...</div>';
+  var sociosRet=diaFiltro?'':Object.entries(D.socios||{}).map(function(e){
+    var retirado=ret.reduce(function(s,r){return s+(r.montos&&r.montos[e[0]]?r.montos[e[0]].monto:0);},0);
+    return retirado?'<div class="retiro-item"><span>Retiro '+esc(e[1].nombre)+'</span><span class="mono c-azul">'+fmt(retirado)+'</span></div>':'';
+  }).join('');
+
+  document.getElementById('resEg').innerHTML=
+    '<div style="margin-bottom:8px;color:var(--gris-texto);font-size:11px;font-family:monospace">'+periodoLabel+'</div>'
+    +gI
+    +sociosRet
+    +'<div class="retiro-item" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--gris-borde)">'
+    +'<span style="font-weight:600">TOTAL EGRESOS</span>'
+    +'<span class="mono c-rojo" style="font-size:16px">'+fmt(tGastos+tRetiros)+'</span></div>';
 }
 
 // ── CLIENTES ──────────────────────────────────
@@ -3928,6 +4073,7 @@ document.addEventListener('click', function(e){
   if(a==='borrar-cat')       window.borrarCategoria(el.dataset.id);
   if(a==='editar-compra')    window.abrirModalCompra(el.dataset.id);
   if(a==='borrar-compra')    window.borrarCompra(el.dataset.id, el.dataset.mk);
+  if(a==='borrar-caja')      window.borrarCaja(el.dataset.id, el.dataset.mk);
   if(a==='editar-prov')      window.abrirModalProveedor(el.dataset.id);
   if(a==='borrar-prov')       window.borrarProveedor(el.dataset.id);
   if(a==='confirmar-reserva') window.confirmarReservaAdmin(el.dataset.key);
