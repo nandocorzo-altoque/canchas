@@ -774,7 +774,7 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost btn-sm" onclick="_clienteIdSeleccionado=null;cerrar('ovTurno')">Cancelar</button>
+      <button class="btn btn-ghost btn-sm" onclick="_clienteIdSeleccionado=null;document.getElementById('inFijo').disabled=false;cerrar('ovTurno')">Cancelar</button>
       <button class="btn btn-sm" id="btnGuardarTurno" onclick="guardarTurno()">Guardar</button>
     </div>
   </div>
@@ -1096,7 +1096,7 @@ function pintarGrilla(){
           var reem=typeof ausData==='object'?ausData.reemplazo:'';
           if(reem){html+='<td><div class="celda celda-reemplazo'+(asistio?' celda-asistio':'')+'"><div class="celda-top"><span class="cnombre c-reemplazo">↔ '+esc(reem)+'</span><div class="cbotones"><button class="cbtn" style="color:var(--rojo)" onclick="pedirBorrarFijo(\''+dia+'\',\''+hora+'\','+ds+')">×</button></div></div><div class="celda-bottom">'+abtn+'<button class="cbtn" style="font-size:10px;color:var(--gris-texto)" onclick="quitarAus(\''+dia+'\',\''+hora+'\')">↩</button></div></div></td>';}
           else{html+='<td><div class="celda celda-ausente"><div class="celda-top"><span class="cnombre c-aus">⚠ '+esc(nFijo)+'</span><div class="cbotones"><button class="cbtn" style="color:var(--rojo)" onclick="pedirBorrarFijo(\''+dia+'\',\''+hora+'\','+ds+')">×</button></div></div><div class="celda-bottom"><span style="font-size:10px;color:var(--gris-texto)">Libre</span><button class="cbtn" style="font-size:10px;color:var(--gris-texto)" onclick="quitarAus(\''+dia+'\',\''+hora+'\')">↩</button></div></div></td>';}
-        }else{html+='<td><div class="celda celda-fijo'+(asistio?' celda-asistio':'')+'"><div class="celda-top"><span class="cnombre c-fijo">★ '+esc(nFijo)+'</span><div class="cbotones"><button class="cbtn" style="color:var(--amarillo)" onclick="marcarAus(\''+dia+'\',\''+hora+'\',\''+esc(nFijo)+'\')">✕</button><button class="cbtn" style="color:var(--rojo)" onclick="pedirBorrarFijo(\''+dia+'\',\''+hora+'\','+ds+')">×</button></div></div><div class="celda-bottom">'+abtn+'</div></div></td>';}
+        }else{html+='<td><div class="celda celda-fijo'+(asistio?' celda-asistio':'')+'"><div class="celda-top"><span class="cnombre c-fijo">★ '+esc(nFijo)+'</span><div class="cbotones"><button class="cbtn" style="color:var(--azul)" onclick="editarFijo(\''+dia+'\',\''+hora+'\','+ds+')">✏</button><button class="cbtn" style="color:var(--amarillo)" onclick="marcarAus(\''+dia+'\',\''+hora+'\',\''+esc(nFijo)+'\')">✕</button><button class="cbtn" style="color:var(--rojo)" onclick="pedirBorrarFijo(\''+dia+'\',\''+hora+'\','+ds+')">×</button></div></div><div class="celda-bottom">'+abtn+'</div></div></td>';}
       }else if(nEv){html+='<td><div class="celda celda-eventual'+(asistio?' celda-asistio':'')+'"><div class="celda-top"><span class="cnombre c-ev">'+esc(nEv)+'</span><div class="cbotones"><button class="cbtn" style="color:var(--rojo)" onclick="borrarEv(\''+dia+'\',\''+hora+'\')">×</button></div></div><div class="celda-bottom">'+abtn+'</div></div></td>';}
       else{html+='<td><div class="celda-vacia" onclick="abrirTurno(\''+dia+'\',\''+hora+'\')"></div></td>';}
     });
@@ -1110,6 +1110,7 @@ window.abrirTurno=function(dia,hora){
   D._dia=dia;D._hora=hora;
   document.getElementById('inNombre').value='';
   document.getElementById('inFijo').checked=false;
+  document.getElementById('inFijo').disabled=false;
   document.getElementById('inTelefono').value='';
   document.getElementById('fijoExtra').style.display='none';
   document.getElementById('inBuscarCliente').value='';
@@ -4120,7 +4121,7 @@ window.buscarClienteExistente=function(){
   sug.style.display='block';
   sug.innerHTML=clientes.map(function(e){
     var id=e[0],c=e[1];
-    return '<div data-action="sel-cliente" data-id="'+id+'" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--gris-borde);font-size:13px">'
+    return '<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--gris-borde);font-size:13px" onclick="window.seleccionarClienteExistente(\"'+id+'\")">'
       +'<div style="font-weight:500">'+esc(c.nombre)+'</div>'
       +'<div style="font-size:11px;color:var(--gris-texto);font-family:monospace">'+(c.clienteId||'')+(c.telefono?' · '+c.telefono:'')+'</div>'
       +'</div>';
@@ -4149,6 +4150,45 @@ window.limpiarClienteSeleccionado=function(){
   if(badge) badge.style.display='none';
   document.getElementById('inNombre').value='';
   document.getElementById('inTelefono').value='';
+};
+
+
+// Editar turno fijo existente
+window.editarFijo=function(dia,hora,ds){
+  var c=D.cancha;
+  var nombreActual=((D.fijos[c][ds])||{})[hora]||'';
+  D._dia=dia; D._hora=hora;
+
+  // Find existing client for this slot
+  var cid='c_'+c+'_'+ds+'_'+hora.replace(':','');
+  var clienteExist=D.clientes&&D.clientes[cid];
+
+  document.getElementById('inNombre').value=nombreActual;
+  document.getElementById('inFijo').checked=true;
+  document.getElementById('inFijo').disabled=true; // Can't uncheck when editing
+  document.getElementById('fijoExtra').style.display='block';
+  document.getElementById('inTelefono').value=clienteExist?clienteExist.telefono||'':'';
+  document.getElementById('inBuscarCliente').value='';
+  document.getElementById('clientesSugeridos').style.display='none';
+
+  // Show current client info
+  var badge=document.getElementById('clienteSeleccionado');
+  var label=document.getElementById('clienteSeleccionadoLabel');
+  if(clienteExist&&badge&&label){
+    _clienteIdSeleccionado=cid;
+    badge.style.display='flex';
+    label.textContent='Cliente actual: '+clienteExist.nombre+(clienteExist.clienteId?' ('+clienteExist.clienteId+')':'');
+  } else {
+    _clienteIdSeleccionado=null;
+    if(badge) badge.style.display='none';
+  }
+
+  var pp=dia.split('-');
+  document.getElementById('tituloTurno').textContent='Editar fijo — Cancha '+c+' · '+pp[2]+'/'+pp[1]+' · '+hora;
+  document.getElementById('inFijo').onchange=null; // disabled
+
+  abrir('ovTurno');
+  setTimeout(function(){ document.getElementById('inNombre').focus(); document.getElementById('inNombre').select(); },80);
 };
 
 // ── SELECTS MES ───────────────────────────────
