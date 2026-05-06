@@ -337,7 +337,7 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
     </div>
     <div style="overflow-x:auto">
       <table class="tbl">
-        <thead><tr><th>Nombre</th><th>Teléfono</th><th>Cancha</th><th>Día / Hora</th><th>Acciones</th></tr></thead>
+        <thead><tr><th>ID</th><th>Nombre</th><th>Teléfono</th><th>Cancha</th><th>Día / Hora</th><th>PIN web</th><th>Acciones</th></tr></thead>
         <tbody id="bodyClientes"></tbody>
       </table>
     </div>
@@ -758,11 +758,23 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
     <div class="form-group"><label>Nombre</label><input type="text" id="inNombre" placeholder="Ej: Juan Pérez"></div>
     <label class="check-label"><input type="checkbox" id="inFijo"><span>Turno fijo <span style="color:var(--gris-texto);font-size:11px">(se repite todas las semanas)</span></span></label>
     <div id="fijoExtra" style="display:none;margin-top:10px;background:var(--gris-fondo);border-radius:8px;padding:12px;border:1px solid rgba(0,230,118,0.2)">
-      <div style="font-size:11px;color:var(--verde);font-family:'DM Mono',monospace;margin-bottom:8px">📱 DATOS DEL CLIENTE (opcional)</div>
-      <div class="form-group" style="margin-bottom:0"><label>Teléfono / WhatsApp</label><input type="tel" id="inTelefono" placeholder="Ej: 2614123456"></div>
+      <div style="font-size:11px;color:var(--verde);font-family:'DM Mono',monospace;margin-bottom:8px">📱 DATOS DEL CLIENTE</div>
+      <div class="form-group" style="margin-bottom:8px">
+        <label>Buscar cliente existente <span style="color:var(--gris-texto);font-size:10px;text-transform:none">(opcional)</span></label>
+        <input type="text" id="inBuscarCliente" placeholder="Buscar por nombre o ID..." oninput="buscarClienteExistente()" autocomplete="off" style="font-size:13px">
+        <div id="clientesSugeridos" style="display:none;background:var(--negro);border:1px solid var(--gris-borde);border-radius:8px;margin-top:4px;max-height:140px;overflow-y:auto"></div>
+      </div>
+      <div id="clienteSeleccionado" style="display:none;background:rgba(0,230,118,0.07);border:1px solid rgba(0,230,118,0.25);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12px;display:none;align-items:center;justify-content:space-between">
+        <span id="clienteSeleccionadoLabel" style="color:var(--verde)"></span>
+        <button onclick="limpiarClienteSeleccionado()" style="background:none;border:none;color:var(--gris-texto);cursor:pointer;font-size:14px">×</button>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>Teléfono / WhatsApp <span style="color:var(--gris-texto);font-size:10px;text-transform:none">(si es cliente nuevo)</span></label>
+        <input type="tel" id="inTelefono" placeholder="Ej: 2614123456">
+      </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost btn-sm" onclick="cerrar('ovTurno')">Cancelar</button>
+      <button class="btn btn-ghost btn-sm" onclick="_clienteIdSeleccionado=null;cerrar('ovTurno')">Cancelar</button>
       <button class="btn btn-sm" id="btnGuardarTurno" onclick="guardarTurno()">Guardar</button>
     </div>
   </div>
@@ -1100,6 +1112,11 @@ window.abrirTurno=function(dia,hora){
   document.getElementById('inFijo').checked=false;
   document.getElementById('inTelefono').value='';
   document.getElementById('fijoExtra').style.display='none';
+  document.getElementById('inBuscarCliente').value='';
+  document.getElementById('clientesSugeridos').style.display='none';
+  var badge=document.getElementById('clienteSeleccionado');
+  if(badge) badge.style.display='none';
+  _clienteIdSeleccionado=null;
   document.getElementById('inFijo').onchange=function(){document.getElementById('fijoExtra').style.display=this.checked?'block':'none';};
   var pp=dia.split('-');
   document.getElementById('tituloTurno').textContent='Cancha '+D.cancha+' · '+pp[2]+'/'+pp[1]+' · '+hora;
@@ -1120,8 +1137,21 @@ window.guardarTurno=async function(){
       await setDoc(doc(db,'fijos','cancha'+c),{data:D.fijos[c]});
       var tel=document.getElementById('inTelefono').value.trim();
       var cid='c_'+c+'_'+ds+'_'+hora.replace(':','');
-      if(!D.clientes)D.clientes={};
-      D.clientes[cid]={nombre:nombre,telefono:tel,cancha:c,diaSem:ds,hora:hora};
+      if(!D.clientes) D.clientes={};
+      if(_clienteIdSeleccionado && D.clientes[_clienteIdSeleccionado]){
+        // Reutilizar cliente existente
+        var exist=D.clientes[_clienteIdSeleccionado];
+        if(_clienteIdSeleccionado!==cid) delete D.clientes[_clienteIdSeleccionado];
+        D.clientes[cid]={...exist,nombre:nombre,cancha:c,diaSem:ds,hora:hora};
+        if(tel) D.clientes[cid].telefono=tel;
+      } else if(!D.clientes[cid]){
+        // Cliente nuevo
+        var maxId2=Object.values(D.clientes).reduce(function(m,cl){return Math.max(m,parseInt((cl.clienteId||'CLI-000').split('-')[1])||0);},0);
+        D.clientes[cid]={nombre:nombre,telefono:tel,cancha:c,diaSem:ds,hora:hora,clienteId:'CLI-'+String(maxId2+1).padStart(3,'0')};
+      } else {
+        D.clientes[cid].nombre=nombre;
+        if(tel) D.clientes[cid].telefono=tel;
+      }
       await setDoc(doc(db,'config','clientes'),{data:D.clientes});
     }else{
       if(!D.eventuales[c][dia])D.eventuales[c][dia]={};
@@ -1733,14 +1763,19 @@ function pintarClientes(){
     var id=e[0],c=e[1];
     var dia=DIAS_N[c.diaSem]||'-';
     var wa=c.telefono?'<a href="https://wa.me/549'+c.telefono.replace(/\D/g,'')+'" target="_blank" style="color:var(--verde);text-decoration:none;font-size:12px">📲 WA</a>':'';
+    var pinBadge=c.pin
+      ?'<span style="background:rgba(0,230,118,0.1);color:var(--verde);border-radius:4px;padding:2px 8px;font-size:11px;font-family:monospace">'+c.pin+'</span>'
+      :'<button class="btn btn-ghost btn-sm" data-action="generar-pin" data-id="'+id+'" style="font-size:11px;padding:4px 8px">+ Asignar PIN</button>';
     return '<tr>'
+      +'<td><span style="background:var(--gris-borde);color:var(--verde);border-radius:4px;padding:2px 8px;font-size:11px;font-family:monospace;font-weight:600">'+(c.clienteId||'—')+'</span></td>'
       +'<td style="font-weight:500">'+esc(c.nombre||'')+'</td>'
       +'<td class="mono" style="font-size:13px">'+(c.telefono||'<span style="color:var(--gris-texto)">—</span>')+'</td>'
       +'<td><span style="background:rgba(0,230,118,0.1);color:var(--verde);border-radius:4px;padding:2px 8px;font-size:11px;font-family:monospace">C'+c.cancha+'</span></td>'
       +'<td style="font-size:12px;color:var(--gris-texto)">'+dia+' '+c.hora+'</td>'
-      +'<td><div style="display:flex;gap:6px;align-items:center">'+wa
-      +'<button class="btn btn-ghost btn-sm" onclick="editarCliente(\''+id+'\')">✏️ Editar</button>'
-      +'<button class="btn btn-danger btn-sm" onclick="borrarCliente(\''+id+'\')">× Borrar</button>'
+      +'<td>'+pinBadge+'</td>'
+      +'<td><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'+wa
+      +'<button class="btn btn-ghost btn-sm" onclick="editarCliente(\''+id+'\')">✏️</button>'
+      +'<button class="btn btn-danger btn-sm" onclick="borrarCliente(\''+id+'\')">×</button>'
       +'</div></td>'
       +'</tr>';
   }).join('');
@@ -1762,7 +1797,16 @@ window.guardarEdicionCliente=async function(){
   var nombre=document.getElementById('editNombre').value.trim();
   if(!nombre){toast('El nombre es obligatorio','err');return;}
   setBusy('btnGuardarEditar',true);
-  D.clientes[_editClienteId]={nombre,telefono:document.getElementById('editTelefono').value.trim(),cancha:parseInt(document.getElementById('editCancha').value),diaSem:parseInt(document.getElementById('editDia').value),hora:document.getElementById('editHora').value};
+  var clienteExistente=D.clientes[_editClienteId]||{};
+  D.clientes[_editClienteId]={
+    nombre,
+    telefono:document.getElementById('editTelefono').value.trim(),
+    cancha:parseInt(document.getElementById('editCancha').value),
+    diaSem:parseInt(document.getElementById('editDia').value),
+    hora:document.getElementById('editHora').value,
+    clienteId:clienteExistente.clienteId||'CLI-???',
+    pin:clienteExistente.pin||null
+  };
   try{await setDoc(doc(db,'config','clientes'),{data:D.clientes});cerrar('ovEditarCliente');setSynced(true);toast('Cliente actualizado ✓');pintarClientes();}catch(e){toast('Error: '+e.message,'err');setSynced(false);}
   setBusy('btnGuardarEditar',false);
 };
@@ -4040,6 +4084,73 @@ window.guardarWebConfig=async function(){
   setBusy('btnGuardarWeb',false);
 };
 
+
+// Generar PIN para cliente (para login en web de reservas)
+window.generarPin=async function(id){
+  if(!D.clientes||!D.clientes[id]) return;
+  // Generate random 4-digit PIN
+  var pin=String(Math.floor(1000+Math.random()*9000));
+  D.clientes[id].pin=pin;
+  try{
+    await setDoc(doc(db,'config','clientes'),{data:D.clientes});
+    setSynced(true);
+    toast('PIN '+pin+' asignado a '+D.clientes[id].nombre+' (ID: '+D.clientes[id].clienteId+')');
+    pintarClientes();
+  }catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+};
+
+
+// ── BUSQUEDA CLIENTE EN TURNO FIJO ────────────
+var _clienteIdSeleccionado = null; // ID interno del cliente seleccionado
+
+window.buscarClienteExistente=function(){
+  var buscar=(document.getElementById('inBuscarCliente').value||'').toLowerCase().trim();
+  var sug=document.getElementById('clientesSugeridos');
+  if(!sug) return;
+  if(!buscar||buscar.length<2){ sug.style.display='none'; return; }
+
+  var clientes=Object.entries(D.clientes||{}).filter(function(e){
+    var c=e[1];
+    return (c.nombre||'').toLowerCase().includes(buscar)
+      ||(c.telefono||'').includes(buscar)
+      ||(c.clienteId||'').toLowerCase().includes(buscar);
+  }).slice(0,6);
+
+  if(!clientes.length){ sug.style.display='none'; return; }
+  sug.style.display='block';
+  sug.innerHTML=clientes.map(function(e){
+    var id=e[0],c=e[1];
+    return '<div data-action="sel-cliente" data-id="'+id+'" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--gris-borde);font-size:13px">'
+      +'<div style="font-weight:500">'+esc(c.nombre)+'</div>'
+      +'<div style="font-size:11px;color:var(--gris-texto);font-family:monospace">'+(c.clienteId||'')+(c.telefono?' · '+c.telefono:'')+'</div>'
+      +'</div>';
+  }).join('');
+};
+
+window.seleccionarClienteExistente=function(id){
+  var c=D.clientes[id];
+  if(!c) return;
+  _clienteIdSeleccionado=id;
+  // Fill nombre en el input principal
+  document.getElementById('inNombre').value=c.nombre||'';
+  document.getElementById('inTelefono').value=c.telefono||'';
+  document.getElementById('inBuscarCliente').value='';
+  document.getElementById('clientesSugeridos').style.display='none';
+  // Show selected badge
+  var badge=document.getElementById('clienteSeleccionado');
+  var label=document.getElementById('clienteSeleccionadoLabel');
+  if(badge){ badge.style.display='flex'; }
+  if(label){ label.textContent='✓ Cliente existente: '+c.nombre+' ('+(c.clienteId||'')+')'; }
+};
+
+window.limpiarClienteSeleccionado=function(){
+  _clienteIdSeleccionado=null;
+  var badge=document.getElementById('clienteSeleccionado');
+  if(badge) badge.style.display='none';
+  document.getElementById('inNombre').value='';
+  document.getElementById('inTelefono').value='';
+};
+
 // ── SELECTS MES ───────────────────────────────
 function sincSelects(){
   var keys={};keys[mkHoy()]=1;
@@ -4067,6 +4178,7 @@ document.addEventListener('click', function(e){
   if(a==='anular-venta')  window.anularVenta(el.dataset.fecha, parseInt(el.dataset.idx));
   if(a==='copiar-msg')    window.copiarMensaje(el.dataset.mid);
   if(a==='toggle-asi')    window.toggleAsiHoy(el.dataset.cancha, el.dataset.fecha, el.dataset.hora);
+  if(a==='generar-pin')   window.generarPin(el.dataset.id);
   if(a==='confirmar-venta') window.confirmarVenta();
   if(a==='limpiar-carrito')  window.limpiarCarrito();
   if(a==='crear-categoria')  window.crearCategoria();
@@ -4091,6 +4203,17 @@ async function cargarTodo(){
     if(usrSnap.exists())D.usuarios=usrSnap.data().data||{};
     var cliSnap=await getDoc(doc(db,'config','clientes'));
     if(cliSnap.exists())D.clientes=cliSnap.data().data||{};
+    // Assign IDs to existing clients that don't have one
+    var cliChanged=false;
+    var maxCliId=Object.values(D.clientes||{}).reduce(function(m,c){return Math.max(m,parseInt((c.clienteId||'CLI-000').split('-')[1])||0);},0);
+    Object.keys(D.clientes||{}).forEach(function(k){
+      if(!D.clientes[k].clienteId){
+        maxCliId++;
+        D.clientes[k].clienteId='CLI-'+String(maxCliId).padStart(3,'0');
+        cliChanged=true;
+      }
+    });
+    if(cliChanged) setDoc(doc(db,'config','clientes'),{data:D.clientes}).catch(function(){});
     var prodSnap=await getDoc(doc(db,'config','productos'));
     if(prodSnap.exists())D.productos=prodSnap.data().data||{};
     var provSnap=await getDoc(doc(db,'config','proveedores'));
