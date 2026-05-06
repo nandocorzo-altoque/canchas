@@ -623,6 +623,22 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
     </div>
 
   </div>
+
+  <!-- PROVEEDORES -->
+  <div class="card" style="margin-top:20px">
+    <div class="card-title">🏢 Proveedores <span class="badge" id="badgeProveedores"></span></div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <input type="text" id="buscarProveedor" placeholder="🔍 Buscar proveedor..." oninput="pintarProveedores()" style="flex:1;min-width:160px;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:8px 12px;font-size:13px;outline:none">
+      <button class="btn btn-sm" onclick="abrirModalProveedor(null)">+ Proveedor</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>ID</th><th>Razón Social</th><th>CUIT</th><th>Cond. IVA</th><th>Domicilio</th><th>Teléfono</th><th>Compras</th><th></th></tr></thead>
+        <tbody id="bodyProveedores"></tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 
 <!-- RESERVAS PENDIENTES -->
@@ -4149,20 +4165,3 @@ document.addEventListener('DOMContentLoaded',function(){
 <button id="btnAsistente" onclick="toggleAsistente()" style="position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:var(--verde);border:none;color:var(--negro);font-size:24px;cursor:pointer;z-index:5001;box-shadow:0 4px 16px rgba(0,230,118,0.4);transition:all 0.2s;display:flex;align-items:center;justify-content:center" title="Asistente de voz">🎤</button>
 </body>
 </html>
-    <!-- PROVEEDORES -->
-    <div class="card" style="margin-top:20px" id="cardProveedores" style="display:none">
-      <div class="card-title">🏢 Proveedores <span class="badge" id="badgeProveedores"></span></div>
-      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-        <input type="text" id="buscarProveedor" placeholder="🔍 Buscar proveedor..." oninput="pintarProveedores()" style="flex:1;min-width:160px;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:8px 12px;font-size:13px;outline:none">
-        <button class="btn btn-sm" onclick="abrirModalProveedor(null)">+ Proveedor</button>
-      </div>
-      <div style="overflow-x:auto">
-        <table class="tbl">
-          <thead><tr><th>Razón Social</th><th>CUIT</th><th>Cond. IVA</th><th>Domicilio</th><th>Teléfono</th><th>Compras</th><th></th></tr></thead>
-          <tbody id="bodyProveedores"></tbody>
-        </table>
-      </div>
-    </div>
-
-
-
