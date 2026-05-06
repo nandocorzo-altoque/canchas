@@ -4104,6 +4104,9 @@ window.generarPin=async function(id){
 // ── BUSQUEDA CLIENTE EN TURNO FIJO ────────────
 var _clienteIdSeleccionado = null; // ID interno del cliente seleccionado
 
+// Map to resolve client ids from dropdown
+var _sugClientesMap = {};
+
 window.buscarClienteExistente=function(){
   var buscar=(document.getElementById('inBuscarCliente').value||'').toLowerCase().trim();
   var sug=document.getElementById('clientesSugeridos');
@@ -4118,30 +4121,52 @@ window.buscarClienteExistente=function(){
   }).slice(0,6);
 
   if(!clientes.length){ sug.style.display='none'; return; }
+
+  // Build a simple index map: 0,1,2... -> actual id
+  _sugClientesMap={};
+  clientes.forEach(function(e,i){ _sugClientesMap[i]=e[0]; });
+
   sug.style.display='block';
-  sug.innerHTML=clientes.map(function(e){
-    var id=e[0],c=e[1];
-    return '<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--gris-borde);font-size:13px" onmousedown="event.preventDefault();window.seleccionarClienteExistente(\"'+id+'\")">'
+  sug.innerHTML=clientes.map(function(e,i){
+    var c=e[1];
+    return '<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--gris-borde);font-size:13px;transition:background 0.15s" onmousedown="event.preventDefault();window.seleccionarPorIndice('+i+')">'
       +'<div style="font-weight:500">'+esc(c.nombre)+'</div>'
       +'<div style="font-size:11px;color:var(--gris-texto);font-family:monospace">'+(c.clienteId||'')+(c.telefono?' · '+c.telefono:'')+'</div>'
       +'</div>';
   }).join('');
 };
 
+window.seleccionarPorIndice=function(i){
+  var id=_sugClientesMap[i];
+  if(id) window.seleccionarClienteExistente(id);
+};
+
 window.seleccionarClienteExistente=function(id){
+  // Try direct lookup first, then search by clienteId
   var c=D.clientes[id];
-  if(!c) return;
-  _clienteIdSeleccionado=id;
-  // Fill nombre en el input principal
-  document.getElementById('inNombre').value=c.nombre||'';
-  document.getElementById('inTelefono').value=c.telefono||'';
-  document.getElementById('inBuscarCliente').value='';
-  document.getElementById('clientesSugeridos').style.display='none';
-  // Show selected badge
+  var realId=id;
+  if(!c){
+    // Search through all clients
+    var found=Object.entries(D.clientes||{}).find(function(e){
+      return e[0]===id || e[1].clienteId===id;
+    });
+    if(found){ realId=found[0]; c=found[1]; }
+  }
+  if(!c){ console.warn('Cliente no encontrado:',id); return; }
+  _clienteIdSeleccionado=realId;
+  // Completar campos
+  var inNombre=document.getElementById('inNombre');
+  var inTel=document.getElementById('inTelefono');
+  var inBuscar=document.getElementById('inBuscarCliente');
+  var sug=document.getElementById('clientesSugeridos');
   var badge=document.getElementById('clienteSeleccionado');
   var label=document.getElementById('clienteSeleccionadoLabel');
-  if(badge){ badge.style.display='flex'; }
-  if(label){ label.textContent='✓ Cliente existente: '+c.nombre+' ('+(c.clienteId||'')+')'; }
+  if(inNombre) inNombre.value=c.nombre||'';
+  if(inTel)    inTel.value=c.telefono||'';
+  if(inBuscar) inBuscar.value='';
+  if(sug)      sug.style.display='none';
+  if(badge)    badge.style.display='flex';
+  if(label)    label.textContent='✓ '+esc(c.nombre)+' · '+(c.clienteId||'')+(c.telefono?' · '+c.telefono:'');
 };
 
 window.limpiarClienteSeleccionado=function(){
