@@ -667,6 +667,81 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
     </div>
   </div>
 </div>
+
+<!-- WEB CONFIG -->
+<div class="tab" id="tab-web">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+
+    <!-- COLUMNA IZQUIERDA -->
+    <div>
+      <div class="card">
+        <div class="card-title">🏟️ Información del complejo</div>
+        <div class="form-group"><label>Nombre del complejo</label><input type="text" id="webNombre" placeholder="Ej: Canchas Al Toque"></div>
+        <div class="form-group"><label>Descripción / Reseña</label><textarea id="webDescripcion" rows="4" placeholder="Describí el complejo para los clientes..." style="width:100%;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;resize:vertical;transition:border-color 0.2s"></textarea></div>
+        <div class="form-group"><label>Dirección</label><input type="text" id="webDireccion" placeholder="Ej: Av. San Martín 1234, Mendoza"></div>
+        <div class="form-group"><label>Teléfono / WhatsApp</label><input type="tel" id="webTelefono" placeholder="Ej: 2614123456"></div>
+        <div class="form-group"><label>Email (opcional)</label><input type="email" id="webEmail" placeholder="canchas@mail.com"></div>
+        <div class="form-group"><label>Instagram (opcional)</label><input type="text" id="webInstagram" placeholder="@canchasaltoque"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🕐 Horarios</div>
+        <div class="form-grid-2">
+          <div class="form-group"><label>Hora apertura</label><input type="time" id="webHoraAbre" value="13:00"></div>
+          <div class="form-group"><label>Hora cierre</label><input type="time" id="webHoraCierra" value="23:00"></div>
+        </div>
+        <div class="form-group">
+          <label>Días de atención</label>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px" id="webDias">
+            <label class="check-label" style="padding:8px;font-size:12px;flex-direction:column;gap:4px;text-align:center"><input type="checkbox" id="webLun" checked style="accent-color:var(--verde)"> Lunes</label>
+            <label class="check-label" style="padding:8px;font-size:12px;flex-direction:column;gap:4px;text-align:center"><input type="checkbox" id="webMar" checked style="accent-color:var(--verde)"> Martes</label>
+            <label class="check-label" style="padding:8px;font-size:12px;flex-direction:column;gap:4px;text-align:center"><input type="checkbox" id="webMie" checked style="accent-color:var(--verde)"> Miércoles</label>
+            <label class="check-label" style="padding:8px;font-size:12px;flex-direction:column;gap:4px;text-align:center"><input type="checkbox" id="webJue" checked style="accent-color:var(--verde)"> Jueves</label>
+            <label class="check-label" style="padding:8px;font-size:12px;flex-direction:column;gap:4px;text-align:center"><input type="checkbox" id="webVie" checked style="accent-color:var(--verde)"> Viernes</label>
+            <label class="check-label" style="padding:8px;font-size:12px;flex-direction:column;gap:4px;text-align:center"><input type="checkbox" id="webSab" checked style="accent-color:var(--verde)"> Sábado</label>
+            <label class="check-label" style="padding:8px;font-size:12px;flex-direction:column;gap:4px;text-align:center"><input type="checkbox" id="webDom" checked style="accent-color:var(--verde)"> Domingo</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLUMNA DERECHA -->
+    <div>
+      <div class="card">
+        <div class="card-title">💰 Precios</div>
+        <div class="form-group"><label>Precio turno eventual ($)</label><input type="number" id="webPrecioTurno" placeholder="0"></div>
+        <div class="form-group"><label>Precio turno fijo semanal ($)</label><input type="number" id="webPrecioFijo" placeholder="0"></div>
+        <div class="form-group"><label>Precio por hora (alquiler cancha completa, opcional)</label><input type="number" id="webPrecioCompleta" placeholder="0"></div>
+        <div class="form-group"><label>Texto promocional (opcional)</label><input type="text" id="webPromo" placeholder="Ej: 10% off reservando online"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🏟️ Características del complejo</div>
+        <p style="font-size:12px;color:var(--gris-texto);margin-bottom:12px">Tildá las que aplican — se muestran en la web</p>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <label class="check-label"><input type="checkbox" id="featCesped" checked style="accent-color:var(--verde)"> 🌿 Césped sintético</label>
+          <label class="check-label"><input type="checkbox" id="featLed" checked style="accent-color:var(--verde)"> 💡 Iluminación LED</label>
+          <label class="check-label"><input type="checkbox" id="featVestuarios" checked style="accent-color:var(--verde)"> 🚿 Vestuarios con duchas</label>
+          <label class="check-label"><input type="checkbox" id="featBuffet" checked style="accent-color:var(--verde)"> 🛒 Buffet y kiosco</label>
+          <label class="check-label"><input type="checkbox" id="featEstacionamiento" style="accent-color:var(--verde)"> 🅿️ Estacionamiento</label>
+          <label class="check-label"><input type="checkbox" id="featTecho" style="accent-color:var(--verde)"> 🏠 Techada</label>
+          <label class="check-label"><input type="checkbox" id="featWifi" style="accent-color:var(--verde)"> 📶 Wi-Fi</label>
+          <label class="check-label"><input type="checkbox" id="featMP" style="accent-color:var(--verde)"> 📱 Acepta Mercado Pago</label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📢 Aviso para clientes</div>
+        <div class="form-group"><label>Mensaje destacado en la web (opcional)</label><textarea id="webAviso" rows="3" placeholder="Ej: Cerramos del 24 al 26 de diciembre. ¡Felices fiestas!" style="width:100%;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;resize:vertical"></textarea></div>
+        <div style="font-size:12px;color:var(--gris-texto)">Si está completado aparece en un banner amarillo en la web de clientes.</div>
+      </div>
+
+      <button class="btn" id="btnGuardarWeb" onclick="guardarWebConfig()" style="width:100%;margin-top:4px">💾 Guardar y publicar en la web</button>
+      <div id="webMsg" style="font-size:12px;color:var(--verde);margin-top:10px;text-align:center;display:none">✓ Configuración publicada en la web</div>
+    </div>
+
+  </div>
+</div>
 </main>
 
 <!-- MODALES -->
@@ -843,6 +918,7 @@ const TABS_DISPONIBLES=[
   {id:'reservas',label:'🔔 Reservas'},
   {id:'buffet',label:'🍔 Buffet'},
   {id:'inventario',label:'📦 Inventario'},
+  {id:'web',label:'🌐 Web'},
   {id:'config',label:'⚙️ Config'}
 ];
 
@@ -853,6 +929,7 @@ var D={
   productos:{},ventasBuffet:{},categorias:{},reservasPendientes:{},
   config:{nombreComplejo:'Canchas Al Toque',precioTurno:35000,precioGaseosa:0,adminPass:'admin123',mensajeConfirmacion:'Hola {nombre}! Te recordamos tu turno de hoy a las {hora} en Cancha {cancha}. ¿Confirmás tu asistencia?',permitirStockNegativo:false},
   socios:{},   // {id:{nombre,pct,base}}
+  webConfig:{}, // config publica de la web de clientes
   diaActual:null,   // dia navegado (YYYY-MM-DD), null = hoy real
   jornadas:{},      // {fecha: {abierta, horaInicio, horaCierre}}
   personal:{}, // {id:{nombre,precioPorHora}}
@@ -931,6 +1008,7 @@ window.irA=function(tab,btn){
   if(tab==='clientes')pintarClientes();
   if(tab==='reservas') pintarReservas();
   if(tab==='config')  pintarConfig();
+  if(tab==='web')      pintarWebConfig();
   if(tab==='buffet')     pintarBuffet();
   if(tab==='inventario') pintarInventarioTab();
 };
@@ -3724,6 +3802,97 @@ window.borrarReservaAdmin=async function(key){
     toast('Reserva eliminada');
     _renderReservas();
   }catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+};
+
+
+// ── WEB CONFIG ───────────────────────────────
+function pintarWebConfig(){
+  var w=D.webConfig||{};
+  // Info complejo
+  document.getElementById('webNombre').value=w.nombre||D.config.nombreComplejo||'';
+  document.getElementById('webDescripcion').value=w.descripcion||'';
+  document.getElementById('webDireccion').value=w.direccion||'';
+  document.getElementById('webTelefono').value=w.telefono||'';
+  document.getElementById('webEmail').value=w.email||'';
+  document.getElementById('webInstagram').value=w.instagram||'';
+  // Horarios
+  document.getElementById('webHoraAbre').value=w.horaAbre||'13:00';
+  document.getElementById('webHoraCierra').value=w.horaCierra||'23:00';
+  // Dias
+  var dias=w.dias||{lun:true,mar:true,mie:true,jue:true,vie:true,sab:true,dom:true};
+  document.getElementById('webLun').checked=!!dias.lun;
+  document.getElementById('webMar').checked=!!dias.mar;
+  document.getElementById('webMie').checked=!!dias.mie;
+  document.getElementById('webJue').checked=!!dias.jue;
+  document.getElementById('webVie').checked=!!dias.vie;
+  document.getElementById('webSab').checked=!!dias.sab;
+  document.getElementById('webDom').checked=!!dias.dom;
+  // Precios
+  document.getElementById('webPrecioTurno').value=w.precioTurno||D.config.precioTurno||'';
+  document.getElementById('webPrecioFijo').value=w.precioFijo||'';
+  document.getElementById('webPrecioCompleta').value=w.precioCompleta||'';
+  document.getElementById('webPromo').value=w.promo||'';
+  // Features
+  var feat=w.features||{cesped:true,led:true,vestuarios:true,buffet:true};
+  document.getElementById('featCesped').checked=!!feat.cesped;
+  document.getElementById('featLed').checked=!!feat.led;
+  document.getElementById('featVestuarios').checked=!!feat.vestuarios;
+  document.getElementById('featBuffet').checked=!!feat.buffet;
+  document.getElementById('featEstacionamiento').checked=!!feat.estacionamiento;
+  document.getElementById('featTecho').checked=!!feat.techo;
+  document.getElementById('featWifi').checked=!!feat.wifi;
+  document.getElementById('featMP').checked=!!feat.mp;
+  // Aviso
+  document.getElementById('webAviso').value=w.aviso||'';
+}
+
+window.guardarWebConfig=async function(){
+  var cfg={
+    nombre:document.getElementById('webNombre').value.trim(),
+    descripcion:document.getElementById('webDescripcion').value.trim(),
+    direccion:document.getElementById('webDireccion').value.trim(),
+    telefono:document.getElementById('webTelefono').value.trim(),
+    email:document.getElementById('webEmail').value.trim(),
+    instagram:document.getElementById('webInstagram').value.trim(),
+    horaAbre:document.getElementById('webHoraAbre').value,
+    horaCierra:document.getElementById('webHoraCierra').value,
+    dias:{
+      lun:document.getElementById('webLun').checked,
+      mar:document.getElementById('webMar').checked,
+      mie:document.getElementById('webMie').checked,
+      jue:document.getElementById('webJue').checked,
+      vie:document.getElementById('webVie').checked,
+      sab:document.getElementById('webSab').checked,
+      dom:document.getElementById('webDom').checked
+    },
+    precioTurno:parseFloat(document.getElementById('webPrecioTurno').value)||0,
+    precioFijo:parseFloat(document.getElementById('webPrecioFijo').value)||0,
+    precioCompleta:parseFloat(document.getElementById('webPrecioCompleta').value)||0,
+    promo:document.getElementById('webPromo').value.trim(),
+    features:{
+      cesped:document.getElementById('featCesped').checked,
+      led:document.getElementById('featLed').checked,
+      vestuarios:document.getElementById('featVestuarios').checked,
+      buffet:document.getElementById('featBuffet').checked,
+      estacionamiento:document.getElementById('featEstacionamiento').checked,
+      techo:document.getElementById('featTecho').checked,
+      wifi:document.getElementById('featWifi').checked,
+      mp:document.getElementById('featMP').checked
+    },
+    aviso:document.getElementById('webAviso').value.trim(),
+    updatedAt:new Date().toISOString()
+  };
+  setBusy('btnGuardarWeb',true);
+  try{
+    D.webConfig=cfg;
+    await setDoc(doc(db,'config','web'),cfg);
+    setSynced(true);
+    toast('Configuración publicada en la web ✓');
+    var msg=document.getElementById('webMsg');
+    msg.style.display='block';
+    setTimeout(function(){msg.style.display='none';},3000);
+  }catch(e){toast('Error: '+e.message,'err');setSynced(false);}
+  setBusy('btnGuardarWeb',false);
 };
 
 // ── SELECTS MES ───────────────────────────────
