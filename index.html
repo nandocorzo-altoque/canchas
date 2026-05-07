@@ -1336,9 +1336,8 @@ function pintarHoy(){
   html+='<div style="grid-column:1/-1"><div style="background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.2);border-radius:12px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
     +'<div><div style="font-size:12px;color:var(--gris-texto);font-family:monospace;margin-bottom:4px">TOTAL ASISTENCIAS HOY</div>'
     +'<div style="font-family:Syne,sans-serif;font-size:28px;font-weight:800;color:var(--verde)">'+totalAsi+'</div></div>'
-    +(jornadaCerradaFinal
-      ?'<span style="font-size:12px;color:var(--gris-texto);font-family:monospace;background:var(--gris-borde);padding:8px 14px;border-radius:8px">✓ Jornada cerrada</span>'
-      :'<button class="btn" onclick="abrirCierreDia()">💰 Registrar caja del día</button>')
+    +'<button class="btn" onclick="abrirCierreDia()">💰 Registrar caja del día</button>'
+    +(jornadaCerradaFinal?'<span style="font-size:11px;color:var(--gris-texto);font-family:monospace;margin-left:4px">Jornada cerrada</span>':'')
     +'</div></div>';
   var hoyGridEl=document.getElementById('hoyGrid');
   if(hoyGridEl) hoyGridEl.innerHTML=html;
@@ -2477,8 +2476,10 @@ window.cerrarJornada=async function(){
   try{
     await setDoc(doc(db,'jornadas',fecha),D.jornadas[fecha]);
     setSynced(true);
-    toast('Jornada cerrada — '+fmtF(fecha)+' ✓');
+    toast('Jornada cerrada ✓ — abriendo cierre de caja...');
     pintarHoy();
+    // Abrir cierre de caja automaticamente
+    setTimeout(function(){ abrirCierreDia(); }, 600);
   }catch(e){toast('Error: '+e.message,'err');setSynced(false);}
 };
 
