@@ -278,6 +278,7 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
     <button class="sub-tab active" id="subCaja" onclick="irSubCaja('caja',this)">💰 Caja</button>
     <button class="sub-tab" id="subResumen" onclick="irSubCaja('resumen',this)">📊 Resumen</button>
     <button class="sub-tab" id="subSocios" onclick="irSubCaja('socios',this)">👥 Socios</button>
+    <button class="sub-tab" id="subPersonal" onclick="irSubCaja('personal',this)">👷 Personal</button>
   </div>
 
   <!-- SUB: CAJA DIARIA -->
@@ -332,6 +333,15 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
 </div>
 
   </div><!-- /subSociosPanel -->
+
+  <!-- SUB: PERSONAL -->
+  <div id="subPersonalPanel" style="display:none">
+    <div class="mes-bar">
+      <select id="selPersonalMes" onchange="pintarPersonalResumen()"></select>
+    </div>
+    <div class="stats" id="statsPersonal" style="margin-bottom:20px"></div>
+    <div id="gridPersonal"></div>
+  </div><!-- /subPersonalPanel -->
 
 </div><!-- /tab-caja sub end -->
 
@@ -1052,7 +1062,7 @@ window.irA=function(tab,btn){
   });
   if(tab==='caja'){
     // Show caja sub-tab by default
-    ['Caja','Resumen','Socios'].forEach(function(s){
+    ['Caja','Resumen','Socios','Personal'].forEach(function(s){
       var p=document.getElementById('sub'+s+'Panel'); if(p) p.style.display=s==='Caja'?'block':'none';
       var b=document.getElementById('sub'+s); if(b) b.classList.toggle('active',s==='Caja');
     });
@@ -1764,13 +1774,17 @@ function pintarResumen(){
 
   var tIngresos=tTurnos+tBuffet;
   var tGastos=gst.reduce(function(s,d){return s+(d.monto||0);},0);
+  // Note: totalPersonal calculated later, saldo updated below
   var tRetiros=ret.reduce(function(s,r){return s+Object.values(r.montos||{}).reduce(function(s2,m){return s2+m.monto;},0);},0);
-  var saldo=tIngresos-tGastos-tRetiros;
+  var cajaTodaMes0=D.caja[mk]||[];
+  var tPersonalMes=cajaTodaMes0.reduce(function(s,d){ if(diaFiltro) return d.fecha===diaFiltro?s+(d.desPersonal||0):s; return s+(d.desPersonal||0); },0);
+  var saldo=tIngresos-tGastos-tRetiros-tPersonalMes;
 
   document.getElementById('statsResumen').innerHTML=
     stat('Turnos',fmt(tTurnos),'c-verde')+
     stat('Buffet',fmt(tBuffet),'c-azul')+
     stat('Gastos',fmt(tGastos),'c-rojo')+
+    stat('Personal',fmt(tPersonalMes),'c-naranja')+
     stat('Neto',fmt(saldo),saldo>=0?'c-verde':'c-rojo');
 
   // Panel ingresos
@@ -1794,16 +1808,10 @@ function pintarResumen(){
     return retirado?'<div class="retiro-item"><span>Retiro '+esc(e[1].nombre)+'</span><span class="mono c-azul">'+fmt(retirado)+'</span></div>':'';
   }).join('');
 
-  // Personal del mes - use full cajaMes not filtered caja
-  var personalRows='';
-  var cajaTodaMes=D.caja[mk]||[];
-  var totalPersonal=cajaTodaMes.reduce(function(s,d){
-    if(diaFiltro) return d.fecha===diaFiltro?s+(d.desPersonal||0):s;
-    return s+(d.desPersonal||0);
-  },0);
-  if(totalPersonal>0){
-    personalRows='<div class="retiro-item"><span>👷 Personal (sueldos)</span><span class="mono c-rojo">'+fmt(totalPersonal)+'</span></div>';
-  }
+  // Personal - use tPersonalMes already calculated above
+  var personalRows=tPersonalMes>0
+    ?'<div class="retiro-item"><span>👷 Personal (sueldos)</span><span class="mono c-rojo">'+fmt(tPersonalMes)+'</span></div>'
+    :'';
 
   document.getElementById('resEg').innerHTML=
     '<div style="margin-bottom:8px;color:var(--gris-texto);font-size:11px;font-family:monospace">'+periodoLabel+'</div>'
@@ -1812,7 +1820,7 @@ function pintarResumen(){
     +sociosRet
     +'<div class="retiro-item" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--gris-borde)">'
     +'<span style="font-weight:600">TOTAL EGRESOS</span>'
-    +'<span class="mono c-rojo" style="font-size:16px">'+fmt(tGastos+tRetiros)+'</span></div>';
+    +'<span class="mono c-rojo" style="font-size:16px">'+fmt(tGastos+tRetiros+totalPersonal)+'</span></div>';
 }
 
 // ── CLIENTES ──────────────────────────────────
@@ -2662,8 +2670,9 @@ function filtrarProductosVenta(){
   var buscar=((document.getElementById('buscarProductoVenta')||{}).value||'').toLowerCase();
   var filtCat=((document.getElementById('filtroCatVenta')||{}).value)||'';
   var productos=Object.entries(D.productos||{}).filter(function(e){
+    var stockOk=D.config.permitirStockNegativo||(e[1].stock||0)>0;
     return (!buscar||(e[1].nombre||'').toLowerCase().includes(buscar))
-      &&(e[1].stock||0)>0
+      &&stockOk
       &&(!filtCat||e[1].categoria===filtCat);
   });
   productos.sort(function(a,b){return (a[1].nombre||'').localeCompare(b[1].nombre||'');});
@@ -4334,15 +4343,16 @@ window.editarFijo=function(dia,hora,ds){
 
 // ── SUB-TABS ──────────────────────────────────
 function irSubCaja(sub, btn){
-  ['caja','resumen','socios'].forEach(function(s){
+  ['caja','resumen','socios','personal'].forEach(function(s){
     var panel=document.getElementById('sub'+s.charAt(0).toUpperCase()+s.slice(1)+'Panel');
     var b=document.getElementById('sub'+s.charAt(0).toUpperCase()+s.slice(1));
     if(panel) panel.style.display=s===sub?'block':'none';
     if(b) b.classList.toggle('active',s===sub);
   });
-  if(sub==='caja')    pintarCaja();
-  if(sub==='resumen') { var d=document.getElementById('selResumenDia'); if(d&&!d.value) d.value=hoy(); pintarResumen(); }
-  if(sub==='socios')  pintarSocios();
+  if(sub==='caja')     pintarCaja();
+  if(sub==='resumen')  { var d=document.getElementById('selResumenDia'); if(d&&!d.value) d.value=hoy(); pintarResumen(); }
+  if(sub==='socios')   pintarSocios();
+  if(sub==='personal') pintarPersonalResumen();
 }
 window.irSubCaja=irSubCaja;
 
@@ -4529,12 +4539,106 @@ function resetFotoModal(fotoActual){
   }
 }
 
+
+// ── PERSONAL RESUMEN ─────────────────────────
+function pintarPersonalResumen(){
+  // Sync selPersonalMes with selCaja
+  var selP=document.getElementById('selPersonalMes');
+  var selC=document.getElementById('selCaja');
+  if(selP&&selC&&!selP.options.length){
+    // Copy options from selCaja
+    selC.querySelectorAll('option').forEach(function(o){
+      var opt=document.createElement('option');
+      opt.value=o.value; opt.textContent=o.textContent;
+      selP.appendChild(opt);
+    });
+  }
+  var mk=selP?selP.value:mkHoy();
+
+  var personal=Object.entries(D.personal||{});
+  var cajaMes=D.caja[mk]||[];
+
+  if(!personal.length){
+    document.getElementById('gridPersonal').innerHTML='<div class="card"><div class="empty"><div class="empty-icon">👷</div>Sin personal configurado.<br><span style="font-size:12px">Agregá empleados en ⚙️ Config.</span></div></div>';
+    document.getElementById('statsPersonal').innerHTML='';
+    return;
+  }
+
+  // Calculate totals per employee from caja records
+  var totalHoras=0, totalSueldos=0, totalDias=cajaMes.length;
+
+  var cardsHtml=personal.map(function(e){
+    var pid=e[0], p=e[1];
+    var registros=cajaMes.filter(function(d){
+      return d.personalHoras&&d.personalHoras[pid]&&d.personalHoras[pid].horas>0;
+    });
+    var horasTotal=registros.reduce(function(s,d){ return s+(d.personalHoras[pid].horas||0); },0);
+    var sueldoTotal=registros.reduce(function(s,d){
+      var h=d.personalHoras[pid].horas||0;
+      var precio=d.personalHoras[pid].precioPorHora||p.precioPorHora||0;
+      return s+h*precio;
+    },0);
+    totalHoras+=horasTotal;
+    totalSueldos+=sueldoTotal;
+
+    // Detail rows
+    var detalleRows=registros.map(function(d){
+      var h=d.personalHoras[pid].horas||0;
+      var precio=d.personalHoras[pid].precioPorHora||p.precioPorHora||0;
+      return '<tr>'
+        +'<td class="mono" style="font-size:12px">'+fmtF(d.fecha)+'</td>'
+        +'<td class="mono" style="text-align:center">'+h+'hs</td>'
+        +'<td class="mono" style="text-align:right;color:var(--gris-texto);font-size:11px">'+fmt(precio)+'/hr</td>'
+        +'<td class="mono c-rojo" style="text-align:right;font-weight:600">'+fmt(h*precio)+'</td>'
+        +'</tr>';
+    }).join('');
+
+    return '<div class="card" style="margin-bottom:16px">'
+      +'<div class="card-title" style="display:flex;align-items:center;gap:10px">'
+      +'<div style="width:34px;height:34px;border-radius:50%;background:rgba(64,196,255,0.12);border:1px solid rgba(64,196,255,0.25);display:flex;align-items:center;justify-content:center;font-family:monospace;font-size:13px;color:var(--azul);font-weight:700">'+p.nombre[0].toUpperCase()+'</div>'
+      +'<div>'
+      +'<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800">'+esc(p.nombre)+'</div>'
+      +'<div style="font-size:11px;color:var(--gris-texto);font-family:monospace">'+fmt(p.precioPorHora)+' / hora</div>'
+      +'</div>'
+      +'</div>'
+      // Summary boxes
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">'
+      +'<div style="background:var(--gris-fondo);border-radius:8px;padding:10px;text-align:center">'
+      +'<div style="font-size:10px;color:var(--gris-texto);font-family:monospace;margin-bottom:3px">DÍAS TRABAJADOS</div>'
+      +'<div style="font-family:Syne,sans-serif;font-size:20px;font-weight:700">'+registros.length+'</div>'
+      +'</div>'
+      +'<div style="background:var(--gris-fondo);border-radius:8px;padding:10px;text-align:center">'
+      +'<div style="font-size:10px;color:var(--gris-texto);font-family:monospace;margin-bottom:3px">HORAS TOTALES</div>'
+      +'<div style="font-family:Syne,sans-serif;font-size:20px;font-weight:700;color:var(--azul)">'+horasTotal+'hs</div>'
+      +'</div>'
+      +'<div style="background:rgba(255,68,68,0.07);border-radius:8px;padding:10px;text-align:center">'
+      +'<div style="font-size:10px;color:var(--gris-texto);font-family:monospace;margin-bottom:3px">SUELDO DEL MES</div>'
+      +'<div style="font-family:Syne,sans-serif;font-size:20px;font-weight:700;color:var(--rojo)">'+fmt(sueldoTotal)+'</div>'
+      +'</div>'
+      +'</div>'
+      // Detail table
+      +(registros.length?
+        '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Fecha</th><th>Horas</th><th>Tarifa</th><th>Cobrado</th></tr></thead><tbody>'+detalleRows+'<tr class="tbl-total"><td colspan="3">TOTAL</td><td class="mono">'+fmt(sueldoTotal)+'</td></tr></tbody></table></div>'
+        :'<div class="empty" style="padding:16px"><div class="empty-icon">📋</div>Sin días registrados este mes</div>')
+      +'</div>';
+  }).join('');
+
+  // Stats
+  document.getElementById('statsPersonal').innerHTML=
+    stat('Empleados',personal.length,'')+
+    stat('Días con registro',totalDias,'')+
+    stat('Horas totales',totalHoras+'hs','c-azul')+
+    stat('Total sueldos',fmt(totalSueldos),'c-rojo');
+
+  document.getElementById('gridPersonal').innerHTML=cardsHtml;
+}
+
 // ── SELECTS MES ───────────────────────────────
 function sincSelects(){
   var keys={};keys[mkHoy()]=1;
   [D.caja,D.gastos,D.retiros].forEach(function(obj){Object.keys(obj).forEach(function(k){keys[k]=1;});});
   var sorted=Object.keys(keys).sort().reverse();
-  ['selCaja','selGastos','selSocios','selResumen','selCompras'].forEach(function(id){
+  ['selCaja','selGastos','selSocios','selResumen','selCompras','selPersonalMes'].forEach(function(id){
     var sel=document.getElementById(id),cur=sel.value||mkHoy();
     sel.innerHTML=sorted.map(function(mk){var pp=mk.split('-');return '<option value="'+mk+'"'+(mk===cur?' selected':'')+'>'+MESES[parseInt(pp[1])-1]+' '+pp[0]+'</option>';}).join('');
   });
