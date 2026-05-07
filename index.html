@@ -5366,38 +5366,42 @@ document.addEventListener('DOMContentLoaded',function(){
   </div>
 </div>
 
-<button onclick="exportarDatos()" style="position:fixed;bottom:90px;left:16px;z-index:9999;background:#ff9100;color:#000;border:none;padding:10px 16px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">📦 Exportar datos</button>
+<button onclick="exportarDatos()" style="position:fixed;bottom:90px;left:16px;z-index:9999;background:#ff9100;color:#000;border:none;padding:12px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;box-shadow:0 4px 12px rgba(255,145,0,0.4)">📦 Exportar datos</button>
 <script>
 function exportarDatos(){
-  try{
-    if(!window.D||!window.D.fijos){alert('Esperá que carguen los datos primero');return;}
-    var exp=JSON.stringify({
-      config:D.config||{},
-      clientes:D.clientes||{},
-      productos:D.productos||{},
-      proveedores:D.proveedores||{},
-      socios:D.socios||{},
-      personal:D.personal||{},
-      categorias:D.categorias||{},
-      fijos1:D.fijos[1]||{},
-      fijos2:D.fijos[2]||{},
-      eventuales1:D.eventuales[1]||{},
-      eventuales2:D.eventuales[2]||{},
-      ventasBuffet:D.ventasBuffet||{},
-      webConfig:D.webConfig||{},
-      usuarios:D.usuarios||{},
-      caja:D.caja||{},
-      gastos:D.gastos||{},
-      retiros:D.retiros||{},
-      compras:D.compras||{},
-    },null,2);
-    var blob=new Blob([exp],{type:'application/json'});
-    var a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download='firebase-export.json';
-    a.click();
-    alert('Exportado! Clientes: '+Object.keys(D.clientes||{}).length+', Productos: '+Object.keys(D.productos||{}).length);
-  }catch(e){alert('Error: '+e.message);}
+  if(!window.D){ alert('D no disponible'); return; }
+  var c=Object.keys(D.clientes||{}).length;
+  var p=Object.keys(D.productos||{}).length;
+  var f1=Object.keys(D.fijos&&D.fijos[1]||{}).length;
+  if(c===0&&p===0&&f1===0){ alert('Datos aun no cargados. Esperá que aparezcan los turnos y volvé a intentar.'); return; }
+  var exp=JSON.stringify({
+    config:D.config||{},
+    clientes:D.clientes||{},
+    productos:D.productos||{},
+    proveedores:D.proveedores||{},
+    socios:D.socios||{},
+    personal:D.personal||{},
+    categorias:D.categorias||{},
+    usuarios:D.usuarios||{},
+    fijos1:D.fijos[1]||{},
+    fijos2:D.fijos[2]||{},
+    eventuales1:D.eventuales[1]||{},
+    eventuales2:D.eventuales[2]||{},
+    ausentes1:D.ausentes[1]||{},
+    ausentes2:D.ausentes[2]||{},
+    ventasBuffet:D.ventasBuffet||{},
+    webConfig:D.webConfig||{},
+    caja:D.caja||{},
+    gastos:D.gastos||{},
+    retiros:D.retiros||{},
+    compras:D.compras||{},
+  },null,2);
+  var blob=new Blob([exp],{type:'application/json'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='firebase-export.json';
+  a.click();
+  alert('Exportado correctamente!\nClientes: '+c+'\nProductos: '+p+'\nDias fijos C1: '+f1);
 }
 </script>
 </body>
