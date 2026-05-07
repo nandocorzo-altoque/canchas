@@ -1003,7 +1003,7 @@ const TABS_DISPONIBLES=[
   {id:'config',label:'⚙️ Config'}
 ];
 
-var D={
+window.D=D={
   cancha:1,semana:0,
   eventuales:{1:{},2:{}},fijos:{1:{},2:{}},ausentes:{1:{},2:{}},asistencias:{1:{},2:{}},
   caja:{},gastos:{},retiros:{},clientes:{},compras:{},proveedores:{},
@@ -5366,36 +5366,38 @@ document.addEventListener('DOMContentLoaded',function(){
   </div>
 </div>
 
-<!-- BOTON EXPORTAR TEMPORAL -->
 <button onclick="exportarDatos()" style="position:fixed;bottom:90px;left:16px;z-index:9999;background:#ff9100;color:#000;border:none;padding:10px 16px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">📦 Exportar datos</button>
 <script>
 function exportarDatos(){
-  // Wait for D to be available
-  setTimeout(function(){
-    try{
-      var exp=JSON.stringify({
-        config: window.D ? D.config : {},
-        clientes: window.D ? D.clientes : {},
-        productos: window.D ? D.productos : {},
-        proveedores: window.D ? D.proveedores : {},
-        socios: window.D ? D.socios : {},
-        personal: window.D ? D.personal : {},
-        categorias: window.D ? D.categorias : {},
-        fijos1: window.D ? D.fijos[1] : {},
-        fijos2: window.D ? D.fijos[2] : {},
-        eventuales1: window.D ? D.eventuales[1] : {},
-        eventuales2: window.D ? D.eventuales[2] : {},
-        ventasBuffet: window.D ? D.ventasBuffet : {},
-        webConfig: window.D ? D.webConfig : {},
-      },null,2);
-      var blob=new Blob([exp],{type:'application/json'});
-      var a=document.createElement('a');
-      a.href=URL.createObjectURL(blob);
-      a.download='firebase-export.json';
-      a.click();
-      alert('Datos exportados!');
-    }catch(e){alert('Error: '+e.message);}
-  },500);
+  try{
+    if(!window.D||!window.D.fijos){alert('Esperá que carguen los datos primero');return;}
+    var exp=JSON.stringify({
+      config:D.config||{},
+      clientes:D.clientes||{},
+      productos:D.productos||{},
+      proveedores:D.proveedores||{},
+      socios:D.socios||{},
+      personal:D.personal||{},
+      categorias:D.categorias||{},
+      fijos1:D.fijos[1]||{},
+      fijos2:D.fijos[2]||{},
+      eventuales1:D.eventuales[1]||{},
+      eventuales2:D.eventuales[2]||{},
+      ventasBuffet:D.ventasBuffet||{},
+      webConfig:D.webConfig||{},
+      usuarios:D.usuarios||{},
+      caja:D.caja||{},
+      gastos:D.gastos||{},
+      retiros:D.retiros||{},
+      compras:D.compras||{},
+    },null,2);
+    var blob=new Blob([exp],{type:'application/json'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='firebase-export.json';
+    a.click();
+    alert('Exportado! Clientes: '+Object.keys(D.clientes||{}).length+', Productos: '+Object.keys(D.productos||{}).length);
+  }catch(e){alert('Error: '+e.message);}
 }
 </script>
 </body>
