@@ -407,6 +407,25 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
             </div>
           </label>
         </div>
+        <!-- TEMAS -->
+        <div class="cfg-section">
+          <div class="cfg-section-title">🎨 Estilo visual</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+            <button onclick="aplicarTema('oscuro')" id="temaOscuro" class="btn btn-sm" style="flex-direction:column;gap:4px;padding:12px 8px;border:2px solid transparent">
+              <span style="font-size:20px">🌑</span>
+              <span style="font-size:11px">Oscuro</span>
+            </button>
+            <button onclick="aplicarTema('gris')" id="temaGris" class="btn btn-sm btn-ghost" style="flex-direction:column;gap:4px;padding:12px 8px;border:2px solid transparent">
+              <span style="font-size:20px">🌫️</span>
+              <span style="font-size:11px">Gris</span>
+            </button>
+            <button onclick="aplicarTema('claro')" id="temaClaro" class="btn btn-sm btn-ghost" style="flex-direction:column;gap:4px;padding:12px 8px;border:2px solid transparent">
+              <span style="font-size:20px">☀️</span>
+              <span style="font-size:11px">Claro</span>
+            </button>
+          </div>
+        </div>
+
         <button class="btn" id="btnGuardarConfig" onclick="guardarConfig()" style="width:100%">Guardar configuración</button>
         <div id="cfgMsg" style="font-size:12px;color:var(--verde);margin-top:10px;text-align:center;display:none">✓ Guardado en la nube</div>
       </div>
@@ -1436,7 +1455,9 @@ function pintarCaja(){
   var mk=document.getElementById('selCaja').value;
   var datos=(D.caja[mk]||[]).slice().sort(function(a,b){return a.fecha.localeCompare(b.fecha);});
   var gastosMes=D.gastos[mk]||[];
-  document.getElementById('badgeCaja').textContent=datos.length+' días';
+  // Count unique dates
+  var fechasUnicas={}; datos.forEach(function(d){fechasUnicas[d.fecha]=1;});
+  document.getElementById('badgeCaja').textContent=Object.keys(fechasUnicas).length+' días';
 
   // Calcular totales del mes
   var tTurnos=datos.reduce(function(s,d){return s+d.total;},0);
@@ -1481,22 +1502,36 @@ function pintarCaja(){
     gastosPorFecha[g.fecha]=(gastosPorFecha[g.fecha]||0)+(g.monto||0);
   });
 
+  // Agrupar registros por fecha (puede haber mas de uno por dia)
+  var porFecha={};
+  datos.forEach(function(d){
+    if(!porFecha[d.fecha]) porFecha[d.fecha]={turnos:0,total:0,desGas:0,desPersonal:0,ids:[],ultimo:d};
+    porFecha[d.fecha].turnos+=d.turnos||0;
+    porFecha[d.fecha].total+=d.total||0;
+    porFecha[d.fecha].desGas+=(d.desGas||0);
+    porFecha[d.fecha].desPersonal+=(d.desPersonal||0);
+    porFecha[d.fecha].ids.push(d.id);
+    porFecha[d.fecha].ultimo=d;
+  });
+
   // Unir todas las fechas con actividad
   var fechas={};
-  datos.forEach(function(d){ fechas[d.fecha]=fechas[d.fecha]||{}; fechas[d.fecha].caja=d; });
+  Object.keys(porFecha).forEach(function(f){ fechas[f]=fechas[f]||{}; fechas[f].caja=porFecha[f]; });
   Object.keys(buffetPorFecha).forEach(function(f){ fechas[f]=fechas[f]||{}; fechas[f].buffet=buffetPorFecha[f]; });
   Object.keys(gastosPorFecha).forEach(function(f){ fechas[f]=fechas[f]||{}; fechas[f].gastos=gastosPorFecha[f]; });
 
   var fechasOrden=Object.keys(fechas).sort();
   var rows=fechasOrden.map(function(fecha){
     var x=fechas[fecha];
-    var d=x.caja;
+    var d=x.caja; // agrupado
     var turnosTotal=d?d.total:0;
     var buffetTotal=x.buffet||0;
     var gastosTotal=x.gastos||0;
     var netoFecha=turnosTotal+buffetTotal-gastosTotal;
-    var gL=d?(d.cantGaseosa?d.cantGaseosa+'×'+fmt(d.precioGaseosa):fmt(d.desGas||0)):'—';
+    var gL=d?fmt(d.desGas||0):'—';
     var pL=d?fmt(d.desPersonal||0):'—';
+    // For borrar: show button only if single record, else show count
+    var borrarBtn=d?('<button class="btn btn-danger btn-sm" data-action="borrar-caja" data-id="'+(d.ids&&d.ids.length===1?d.ids[0]:d.ultimo&&d.ultimo.id)+'" data-mk="'+mkMes(fecha)+'">× Borrar</button>'):'';
     return '<tr>'
       +'<td class="mono">'+fmtF(fecha)+'</td>'
       +'<td class="mono" style="text-align:center">'+(d?d.turnos:'—')+'</td>'
@@ -1506,7 +1541,7 @@ function pintarCaja(){
       +'<td class="mono c-azul">'+fmt(buffetTotal)+'</td>'
       +'<td class="mono c-rojo">'+fmt(gastosTotal)+'</td>'
       +'<td class="mono" style="font-weight:700;color:'+(netoFecha>=0?'var(--verde)':'var(--rojo)')+'">'+fmt(netoFecha)+'</td>'
-      +'<td>'+(d?'<button class="btn btn-danger btn-sm" data-action="borrar-caja" data-id="'+d.id+'" data-mk="'+mkMes(fecha)+'">× Borrar</button>':'')+'</td>'
+      +'<td>'+borrarBtn+'</td>'
       +'</tr>';
   });
 
@@ -1894,6 +1929,15 @@ function pintarConfig(){
   document.getElementById('cfgNombreComplejo').value=cfg.nombreComplejo||'';
   document.getElementById('cfgPrecioTurno').value=cfg.precioTurno||'';
   document.getElementById('cfgPrecioGaseosa').value=cfg.precioGaseosa||'';
+  // Mark active theme
+  var temaActual=cfg.tema||localStorage.getItem('canchas_tema')||'oscuro';
+  ['oscuro','gris','claro'].forEach(function(t){
+    var btn=document.getElementById('tema'+t.charAt(0).toUpperCase()+t.slice(1));
+    if(btn){
+      btn.style.borderColor=t===temaActual?'var(--verde)':'transparent';
+      btn.style.background=t===temaActual?'rgba(0,230,118,0.15)':'';
+    }
+  });
   var cbStock=document.getElementById('cfgStockNegativo');
   if(cbStock) cbStock.checked=!!(cfg.permitirStockNegativo);
   document.getElementById('cfgMensaje').value=cfg.mensajeConfirmacion||'';
@@ -1908,6 +1952,7 @@ window.guardarConfig=async function(){
   D.config.precioGaseosa=parseFloat(document.getElementById('cfgPrecioGaseosa').value)||0;
   var cbStockEl=document.getElementById('cfgStockNegativo');
   D.config.permitirStockNegativo=cbStockEl?cbStockEl.checked:false;
+  // tema saved via aplicarTema directly
   D.config.mensajeConfirmacion=document.getElementById('cfgMensaje').value.trim()||'Hola {nombre}! Te recordamos tu turno de hoy a las {hora} en Cancha {cancha}. ¿Confirmás tu asistencia?';
   setBusy('btnGuardarConfig',true);
   try{await setDoc(doc(db,'config','precios'),D.config);aplicarConfig();setSynced(true);toast('Guardado ✓');var msg=document.getElementById('cfgMsg');msg.style.display='block';setTimeout(function(){msg.style.display='none';},2500);}catch(e){toast('Error: '+e.message,'err');setSynced(false);}
@@ -4635,6 +4680,65 @@ function pintarPersonalResumen(){
   document.getElementById('gridPersonal').innerHTML=cardsHtml;
 }
 
+
+// ── TEMAS VISUALES ───────────────────────────
+var TEMAS = {
+  oscuro: {
+    '--negro':          '#0a0a0a',
+    '--gris-fondo':     '#111214',
+    '--gris-card':      '#1a1c1f',
+    '--gris-borde':     '#2a2d32',
+    '--gris-texto':     '#8a8f98',
+    '--blanco':         '#f0f2f5',
+    '--verde':          '#00e676',
+    '--verde-dark':     '#00c853',
+  },
+  gris: {
+    '--negro':          '#1c1e22',
+    '--gris-fondo':     '#23262b',
+    '--gris-card':      '#2c3038',
+    '--gris-borde':     '#3a3f48',
+    '--gris-texto':     '#9aa0ab',
+    '--blanco':         '#e8ecf0',
+    '--verde':          '#00e676',
+    '--verde-dark':     '#00c853',
+  },
+  claro: {
+    '--negro':          '#f4f6f8',
+    '--gris-fondo':     '#ffffff',
+    '--gris-card':      '#ffffff',
+    '--gris-borde':     '#dde1e7',
+    '--gris-texto':     '#6b7280',
+    '--blanco':         '#111214',
+    '--verde':          '#00a854',
+    '--verde-dark':     '#007a3d',
+  }
+};
+
+window.aplicarTema=function(nombre){
+  var tema=TEMAS[nombre];
+  if(!tema) return;
+  var root=document.documentElement;
+  Object.entries(tema).forEach(function(e){ root.style.setProperty(e[0],e[1]); });
+  // Save to localStorage and config
+  localStorage.setItem('canchas_tema',nombre);
+  D.config.tema=nombre;
+  // Update button states
+  ['oscuro','gris','claro'].forEach(function(t){
+    var btn=document.getElementById('tema'+t.charAt(0).toUpperCase()+t.slice(1));
+    if(btn){
+      btn.style.borderColor=t===nombre?'var(--verde)':'transparent';
+      btn.style.background=t===nombre?'rgba(0,230,118,0.15)':'';
+    }
+  });
+  toast('Tema '+nombre+' aplicado ✓');
+};
+
+function cargarTema(){
+  var nombre=D.config.tema||localStorage.getItem('canchas_tema')||'oscuro';
+  aplicarTema(nombre);
+}
+
 // ── SELECTS MES ───────────────────────────────
 function sincSelects(){
   var keys={};keys[mkHoy()]=1;
@@ -4740,6 +4844,7 @@ async function cargarTodo(){
   }
   document.getElementById('loading').style.display='none';
   aplicarConfig();sincSelects();
+  cargarTema();
   var logoSnap=await getDoc(doc(db,'config','logo'));
   if(logoSnap.exists()&&logoSnap.data().data){
     var logoData=logoSnap.data().data;
