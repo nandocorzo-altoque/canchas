@@ -285,7 +285,7 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
   <div id="subCajaPanel">
   <div class="mes-bar">
     <select id="selCaja" onchange="pintarCaja()"></select>
-    <button class="btn btn-sm" onclick="abrirCaja()">+ Agregar día</button>
+    <button class="btn btn-sm" id="btnAgregarDia" onclick="abrirCaja()">+ Agregar día</button>
     <button class="btn btn-sm btn-ghost" onclick="abrirImprimir()">🖨️ Imprimir</button>
   </div>
   <div class="stats" id="statsCaja"></div>
@@ -1355,8 +1355,21 @@ function pintarHoy(){
   html+='<div style="grid-column:1/-1"><div style="background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.2);border-radius:12px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
     +'<div><div style="font-size:12px;color:var(--gris-texto);font-family:monospace;margin-bottom:4px">TOTAL ASISTENCIAS HOY</div>'
     +'<div style="font-family:Syne,sans-serif;font-size:28px;font-weight:800;color:var(--verde)">'+totalAsi+'</div></div>'
-    +'<button class="btn" onclick="abrirCierreDia()">💰 Registrar caja del día</button>'
-    +(jornadaCerradaFinal?'<span style="font-size:11px;color:var(--gris-texto);font-family:monospace;margin-left:4px">Jornada cerrada</span>':'')
+  +(function(){
+      var mk=mkMes(hoyStr);
+      var cajaDia=(D.caja[mk]||[]).filter(function(d){return d.fecha===hoyStr;});
+      var yaRegistrada=cajaDia.length>0;
+      if(yaRegistrada){
+        var totalDia=cajaDia.reduce(function(s,d){return s+d.total;},0);
+        return '<div style="background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.2);border-radius:8px;padding:8px 14px;font-size:13px">'
+          +'<span style="color:var(--verde);font-weight:600">✓ Caja registrada</span>'
+          +' <span style="color:var(--gris-texto);font-size:12px;font-family:monospace">'+fmt(totalDia)+'</span>'
+          +'<button class="btn btn-sm btn-ghost" style="margin-left:10px;font-size:11px" onclick="abrirCierreDia()">+ Agregar</button>'
+          +'</div>';
+      }
+      return '<button class="btn" onclick="abrirCierreDia()">💰 Registrar caja del día</button>'
+        +(jornadaCerradaFinal?'<span style="font-size:11px;color:var(--gris-texto);font-family:monospace;margin-left:4px">Jornada cerrada</span>':'');
+    })()
     +'</div></div>';
   var hoyGridEl=document.getElementById('hoyGrid');
   if(hoyGridEl) hoyGridEl.innerHTML=html;
@@ -1458,6 +1471,14 @@ function pintarCaja(){
   // Count unique dates
   var fechasUnicas={}; datos.forEach(function(d){fechasUnicas[d.fecha]=1;});
   document.getElementById('badgeCaja').textContent=Object.keys(fechasUnicas).length+' días';
+  // Disable agregar if today already registered
+  var btnAgregar=document.getElementById('btnAgregarDia');
+  if(btnAgregar){
+    var hoyRegistrado=!!(fechasUnicas[hoy()]&&mkMes(hoy())===mk);
+    btnAgregar.disabled=hoyRegistrado;
+    btnAgregar.title=hoyRegistrado?'La caja de hoy ya fue registrada':'';
+    btnAgregar.style.opacity=hoyRegistrado?'0.4':'1';
+  }
 
   // Calcular totales del mes
   var tTurnos=datos.reduce(function(s,d){return s+d.total;},0);
@@ -4168,6 +4189,7 @@ window.borrarReservaAdmin=async function(key){
 
 // ── WEB CONFIG ───────────────────────────────
 function pintarWebConfig(){
+  try{
   var w=D.webConfig||{};
   // Info complejo
   document.getElementById('webNombre').value=w.nombre||D.config.nombreComplejo||'';
@@ -4205,6 +4227,7 @@ function pintarWebConfig(){
   document.getElementById('featMP').checked=!!feat.mp;
   // Aviso
   document.getElementById('webAviso').value=w.aviso||'';
+  }catch(err){ console.error('pintarWebConfig error:',err); }
 }
 
 window.guardarWebConfig=async function(){
@@ -4804,6 +4827,8 @@ async function cargarTodo(){
     if(cliChanged) setDoc(doc(db,'config','clientes'),{data:D.clientes}).catch(function(){});
     var prodSnap=await getDoc(doc(db,'config','productos'));
     if(prodSnap.exists())D.productos=prodSnap.data().data||{};
+    var webCfgSnap=await getDoc(doc(db,'config','web'));
+    if(webCfgSnap.exists()) D.webConfig=webCfgSnap.data()||{};
     var provSnap=await getDoc(doc(db,'config','proveedores'));
     if(provSnap.exists())D.proveedores=provSnap.data().data||{};
     var catSnap=await getDoc(doc(db,'config','categorias'));
