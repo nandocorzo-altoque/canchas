@@ -1003,7 +1003,7 @@ const TABS_DISPONIBLES=[
   {id:'config',label:'⚙️ Config'}
 ];
 
-window.D=D={
+var D=window.D={
   cancha:1,semana:0,
   eventuales:{1:{},2:{}},fijos:{1:{},2:{}},ausentes:{1:{},2:{}},asistencias:{1:{},2:{}},
   caja:{},gastos:{},retiros:{},clientes:{},compras:{},proveedores:{},
@@ -5370,10 +5370,10 @@ document.addEventListener('DOMContentLoaded',function(){
 <script>
 function exportarDatos(){
   if(!window.D){ alert('D no disponible'); return; }
-  var c=Object.keys(D.clientes||{}).length;
-  var p=Object.keys(D.productos||{}).length;
-  var f1=Object.keys(D.fijos&&D.fijos[1]||{}).length;
-  if(c===0&&p===0&&f1===0){ alert('Datos aun no cargados. Esperá que aparezcan los turnos y volvé a intentar.'); return; }
+  var c=Object.keys(window.D.clientes||{}).length;
+  var p=Object.keys(window.D.productos||{}).length;
+  if(c===0&&p===0){ alert('Datos aun no cargados. Esperá que aparezcan los turnos.'); return; }
+  var D=window.D;
   var exp=JSON.stringify({
     config:D.config||{},
     clientes:D.clientes||{},
@@ -5401,7 +5401,7 @@ function exportarDatos(){
   a.href=URL.createObjectURL(blob);
   a.download='firebase-export.json';
   a.click();
-  alert('Exportado correctamente!\nClientes: '+c+'\nProductos: '+p+'\nDias fijos C1: '+f1);
+  alert('Exportado!\nClientes: '+c+'\nProductos: '+p);
 }
 </script>
 </body>
