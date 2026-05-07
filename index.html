@@ -2931,7 +2931,8 @@ window.guardarProducto=async function(){
     await setDoc(doc(db,'config','productos'),{data:D.productos});
     cerrar('ovProducto');setSynced(true);
     toast((_editProdId?'Producto actualizado':'Producto creado')+' ✓');
-    pintarBuffet();
+    pintarInventarioTab();
+    filtrarProductosVenta();
   }catch(e){toast('Error: '+e.message,'err');setSynced(false);}
   setBusy('btnGuardarProducto',false);
 };
