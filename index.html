@@ -1794,16 +1794,15 @@ function pintarResumen(){
     return retirado?'<div class="retiro-item"><span>Retiro '+esc(e[1].nombre)+'</span><span class="mono c-azul">'+fmt(retirado)+'</span></div>':'';
   }).join('');
 
-  // Personal del mes
+  // Personal del mes - use full cajaMes not filtered caja
   var personalRows='';
-  if(!diaFiltro){
-    var personal=Object.values(D.personal||{});
-    if(personal.length){
-      var totalPersonal=caja.reduce(function(s,d){return s+(d.desPersonal||0);},0);
-      if(totalPersonal>0){
-        personalRows='<div class="retiro-item"><span>Personal (sueldos)</span><span class="mono c-rojo">'+fmt(totalPersonal)+'</span></div>';
-      }
-    }
+  var cajaTodaMes=D.caja[mk]||[];
+  var totalPersonal=cajaTodaMes.reduce(function(s,d){
+    if(diaFiltro) return d.fecha===diaFiltro?s+(d.desPersonal||0):s;
+    return s+(d.desPersonal||0);
+  },0);
+  if(totalPersonal>0){
+    personalRows='<div class="retiro-item"><span>👷 Personal (sueldos)</span><span class="mono c-rojo">'+fmt(totalPersonal)+'</span></div>';
   }
 
   document.getElementById('resEg').innerHTML=
@@ -2576,18 +2575,17 @@ function pintarEstadoCajaBuffet(){
       +'<div style="font-size:11px;color:var(--gris-texto);margin-top:1px">'+ventas.length+' ventas · Total: <strong style="color:var(--verde)">$'+totalHoy.toLocaleString('es-AR')+'</strong></div>'
       +'</div></div>'
       +'</div>';
+    var btnConf=document.getElementById('btnConfirmarVenta');
+    if(btnConf){ btnConf.disabled=false; btnConf.textContent='✓ Confirmar venta'; }
   } else {
     // Cerrada - bloquear ventas
     el.innerHTML='<div style="background:rgba(255,68,68,0.07);border:1px solid rgba(255,68,68,0.25);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
       +'<div><div style="font-size:13px;font-weight:500;color:var(--rojo)">✓ Caja cerrada'+(j.horaCierre?' a las '+j.horaCierre:'')+'</div>'
       +'<div style="font-size:11px;color:var(--gris-texto);margin-top:2px">La jornada está cerrada. Reabrila desde 📅 Hoy para seguir vendiendo.</div></div>'
       +'</div>';
-    // Block the products list
-    var lista=document.getElementById('productosVentaLista');
-    if(lista) lista.innerHTML='<div class="empty" style="padding:24px"><div class="empty-icon">🔒</div>Caja cerrada</div>';
-    var carritoSec=document.getElementById('carritoSection');
-    if(carritoSec) carritoSec.style.display='none';
-    return;
+    // Just disable the confirm button, still show products
+    var btnConf=document.getElementById('btnConfirmarVenta');
+    if(btnConf){ btnConf.disabled=true; btnConf.textContent='🔒 Caja cerrada'; }
   }
 }
 
@@ -2936,7 +2934,9 @@ window.borrarProducto=async function(id){
   delete D.productos[id];
   try{
     await setDoc(doc(db,'config','productos'),{data:D.productos});
-    setSynced(true);toast('Producto "'+nombre+'" eliminado');pintarBuffet();
+    setSynced(true);toast('Producto "'+nombre+'" eliminado');
+    pintarInventarioTab();
+    filtrarProductosVenta();
   }catch(e){toast('Error: '+e.message,'err');setSynced(false);}
 };
 
