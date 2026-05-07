@@ -237,10 +237,12 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
   <div class="card" id="mensajesCard" style="margin-top:20px">
     <div class="card-title">💬 Mensajes de confirmación
       <span class="badge" id="mensajesBadge"></span>
+      <button class="btn btn-sm" style="margin-left:auto;background:rgba(0,230,118,0.15);color:var(--verde);border:1px solid rgba(0,230,118,0.3)" onclick="enviarConfirmacionesMasivo()">📲 Enviar todos</button>
     </div>
     <p style="font-size:13px;color:var(--gris-texto);margin-bottom:16px;line-height:1.5">
-      Clientes con turno fijo hoy que tienen teléfono cargado. Click en <strong style="color:var(--verde)">Enviar</strong> para abrir WhatsApp con el mensaje pre-armado.
+      Clientes con turno fijo hoy que tienen teléfono cargado. Click en <strong style="color:var(--verde)">Enviar</strong> para mensaje individual o <strong style="color:var(--verde)">Enviar todos</strong> para enviar simultáneamente via WhatsApp.
     </p>
+    <div id="masivStatus" style="display:none;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.2);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:12px"></div>
     <div id="mensajesLista"></div>
     <div id="mensajesVacio" style="display:none">
       <div class="empty"><div class="empty-icon">💬</div>No hay clientes con teléfono para hoy.<br><span style="font-size:12px">Cargá teléfonos en la pestaña 📱 Clientes.</span></div>
@@ -3555,7 +3557,7 @@ window.procesarFacturaOCR=async function(event){
       {type:'text',text:prompt}
     ];
 
-    var response=await fetch('https://us-central1-canchas-al-toque-fbdbc.cloudfunctions.net/anthropicProxy',{
+    var response=await fetch('https://altoquesr.com/claude',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
@@ -3978,7 +3980,7 @@ window.enviarMensajeAsistente = async function(){
   msgs.push({role:'user',content:texto});
 
   try{
-    var resp = await fetch('https://us-central1-canchas-al-toque-fbdbc.cloudfunctions.net/anthropicProxy',{
+    var resp = await fetch('https://altoquesr.com/claude',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
@@ -4779,6 +4781,85 @@ function cargarTema(){
   aplicarTema(nombre);
 }
 
+
+// ── ENVIO MASIVO WHATSAPP ─────────────────────
+window.enviarConfirmacionesMasivo=async function(){
+  var hoyStr=hoy();
+  var ds=dSem(hoyStr);
+  var diasN=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+  var diaNombre=diasN[ds];
+  var template=D.config.msgWA||'Hola {nombre}, te recordamos tu turno fijo de hoy {dia} a las {hora} en {cancha}. ¡Te esperamos!';
+
+  // Recopilar clientes del dia con telefono
+  var clientes=[];
+  [1,2].forEach(function(c){
+    var fij=D.fijos[c]||{};
+    var aus=D.ausentes[c]||{};
+    HORAS.forEach(function(hora){
+      var nombre=(fij[ds]||{})[hora];
+      if(!nombre) return;
+      var ausData=aus[hoyStr]&&aus[hoyStr][hora];
+      if(ausData&&typeof ausData==='object'&&!ausData.reemplazo) return; // ausente sin reemplazo
+      // Find phone
+      var cid='c_'+c+'_'+ds+'_'+hora.replace(':','');
+      var cli=D.clientes&&D.clientes[cid];
+      var tel=cli&&cli.telefono;
+      clientes.push({nombre,telefono:tel||'',cancha:c,hora,dia:diaNombre});
+    });
+  });
+
+  var conTel=clientes.filter(function(c){ return c.telefono; });
+  var sinTel=clientes.filter(function(c){ return !c.telefono; });
+
+  if(!clientes.length){
+    toast('No hay turnos fijos para hoy','err');
+    return;
+  }
+  if(!conTel.length){
+    toast('Ningún cliente tiene teléfono cargado','err');
+    return;
+  }
+
+  var status=document.getElementById('masivStatus');
+  status.style.display='block';
+  status.innerHTML='⏳ Enviando '+conTel.length+' mensajes...'+(sinTel.length?' ('+sinTel.length+' sin teléfono)':'');
+
+  try{
+    var resp=await fetch('https://altoquesr.com/enviar-confirmaciones',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({clientes:conTel, template:template})
+    });
+
+    if(!resp.ok) throw new Error('Error del servidor: '+resp.status);
+    var data=await resp.json();
+
+    var enviados=data.enviados||0;
+    var fallidos=data.fallidos||0;
+    var color=fallidos===0?'var(--verde)':fallidos===enviados?'var(--rojo)':'var(--amarillo)';
+
+    status.innerHTML='<span style="color:'+color+';font-weight:600">'+
+      (fallidos===0?'✓ Todos enviados':'⚠ '+enviados+' enviados, '+fallidos+' fallidos')+
+      '</span>';
+
+    if(data.detalle){
+      var detalleHtml=data.detalle.map(function(d){
+        var icon=d.status==='enviado'?'✓':d.status==='sin_telefono'?'📵':'✗';
+        var color2=d.status==='enviado'?'var(--verde)':d.status==='sin_telefono'?'var(--gris-texto)':'var(--rojo)';
+        return '<div style="font-size:11px;color:'+color2+';padding:2px 0">'+icon+' '+esc(d.nombre)+(d.telefono?' · '+d.telefono:'')+'</div>';
+      }).join('');
+      status.innerHTML+='<div style="margin-top:8px;border-top:1px solid var(--gris-borde);padding-top:8px">'+detalleHtml+'</div>';
+    }
+
+    toast('✓ '+enviados+' mensajes enviados por WhatsApp');
+  }catch(err){
+    status.innerHTML='<span style="color:var(--rojo)">✗ Error: '+err.message+'</span>';
+    // Fallback: open individual WA links
+    status.innerHTML+='<div style="font-size:11px;color:var(--gris-texto);margin-top:6px">El servidor no está disponible. Usá los botones individuales.</div>';
+    toast('Error al enviar: '+err.message,'err');
+  }
+};
+
 // ── SELECTS MES ───────────────────────────────
 function sincSelects(){
   var keys={};keys[mkHoy()]=1;
@@ -5284,5 +5365,38 @@ document.addEventListener('DOMContentLoaded',function(){
     </div>
   </div>
 </div>
+
+<!-- BOTON EXPORTAR TEMPORAL -->
+<button onclick="exportarDatos()" style="position:fixed;bottom:90px;left:16px;z-index:9999;background:#ff9100;color:#000;border:none;padding:10px 16px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">📦 Exportar datos</button>
+<script>
+function exportarDatos(){
+  // Wait for D to be available
+  setTimeout(function(){
+    try{
+      var exp=JSON.stringify({
+        config: window.D ? D.config : {},
+        clientes: window.D ? D.clientes : {},
+        productos: window.D ? D.productos : {},
+        proveedores: window.D ? D.proveedores : {},
+        socios: window.D ? D.socios : {},
+        personal: window.D ? D.personal : {},
+        categorias: window.D ? D.categorias : {},
+        fijos1: window.D ? D.fijos[1] : {},
+        fijos2: window.D ? D.fijos[2] : {},
+        eventuales1: window.D ? D.eventuales[1] : {},
+        eventuales2: window.D ? D.eventuales[2] : {},
+        ventasBuffet: window.D ? D.ventasBuffet : {},
+        webConfig: window.D ? D.webConfig : {},
+      },null,2);
+      var blob=new Blob([exp],{type:'application/json'});
+      var a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download='firebase-export.json';
+      a.click();
+      alert('Datos exportados!');
+    }catch(e){alert('Error: '+e.message);}
+  },500);
+}
+</script>
 </body>
 </html>
