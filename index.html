@@ -157,6 +157,9 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
   .print-page:last-child { page-break-after: avoid; }
 }
 #printArea { display:none; }
+.sub-tab{background:none;border:none;color:var(--gris-texto);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;padding:8px 18px;border-radius:7px;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+.sub-tab:hover{color:var(--blanco);}
+.sub-tab.active{background:var(--gris-fondo);color:var(--verde);}
 @media(max-width:600px){main{padding:12px;}.stats{grid-template-columns:1fr 1fr;}.grilla td{min-width:90px;}.form-grid-3{grid-template-columns:1fr 1fr;}}
 </style>
 </head>
@@ -268,6 +271,15 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
 </div>
 
 <div class="tab" id="tab-caja">
+  <!-- SUB-TABS CAJA -->
+  <div style="display:flex;gap:4px;margin-bottom:20px;background:var(--gris-card);border:1px solid var(--gris-borde);border-radius:10px;padding:4px">
+    <button class="sub-tab active" id="subCaja" onclick="irSubCaja('caja',this)">💰 Caja</button>
+    <button class="sub-tab" id="subResumen" onclick="irSubCaja('resumen',this)">📊 Resumen</button>
+    <button class="sub-tab" id="subSocios" onclick="irSubCaja('socios',this)">👥 Socios</button>
+  </div>
+
+  <!-- SUB: CAJA DIARIA -->
+  <div id="subCajaPanel">
   <div class="mes-bar">
     <select id="selCaja" onchange="pintarCaja()"></select>
     <button class="btn btn-sm" onclick="abrirCaja()">+ Agregar día</button>
@@ -285,27 +297,12 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
   </div>
 </div>
 
-<div class="tab" id="tab-gastos">
-  <div class="mes-bar">
-    <select id="selGastos" onchange="pintarGastos()"></select>
-    <button class="btn btn-sm" onclick="abrirGasto()">+ Agregar gasto</button>
-  </div>
-  <div class="card">
-    <div class="card-title">Gastos del mes</div>
-    <div style="overflow-x:auto">
-      <table class="tbl">
-        <thead><tr><th>Fecha</th><th>Descripción</th><th>Monto</th><th></th></tr></thead>
-        <tbody id="bodyGastos"></tbody>
-      </table>
-    </div>
-    <div style="text-align:right;margin-top:10px">
-      <span style="font-size:11px;color:var(--gris-texto);font-family:'DM Mono',monospace">TOTAL: </span>
-      <span class="mono c-rojo" id="totalGastos" style="font-size:15px;font-weight:600"></span>
-    </div>
-  </div>
-</div>
 
-<div class="tab" id="tab-socios">
+
+  </div><!-- /subResumenPanel -->
+
+  <!-- SUB: SOCIOS -->
+  <div id="subSociosPanel" style="display:none">
   <div class="mes-bar">
     <select id="selSocios" onchange="pintarSocios()"></select>
     <button class="btn btn-sm" onclick="abrirRetiro()">+ Agregar retiro</button>
@@ -313,7 +310,10 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
   <div id="gridSocios"></div>
 </div>
 
-<div class="tab" id="tab-resumen">
+  </div><!-- /subCajaPanel -->
+
+  <!-- SUB: RESUMEN -->
+  <div id="subResumenPanel" style="display:none">
   <div class="mes-bar">
     <select id="resumenPeriodo" onchange="pintarResumen()" style="background:var(--gris-card);border:1px solid var(--gris-borde);color:var(--blanco);padding:8px 12px;border-radius:8px;font-family:'DM Mono',monospace;font-size:13px;outline:none;cursor:pointer">
       <option value="mes">Mes completo</option>
@@ -329,9 +329,15 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
   </div>
 </div>
 
+  </div><!-- /subSociosPanel -->
+
+</div><!-- /tab-caja sub end -->
+
 <div class="tab" id="tab-clientes">
   <div class="card">
-    <div class="card-title">📱 Clientes <span class="badge" id="badgeClientes"></span></div>
+    <div class="card-title">📱 Clientes <span class="badge" id="badgeClientes"></span>
+      <button class="btn btn-sm" style="margin-left:auto" onclick="abrirNuevoCliente()">+ Nuevo cliente</button>
+    </div>
     <div style="margin-bottom:16px">
       <input type="text" id="buscarCliente" placeholder="🔍 Buscar por nombre o teléfono..." oninput="pintarClientes()" style="width:100%;background:var(--gris-fondo);border:1px solid var(--gris-borde);border-radius:8px;color:var(--blanco);padding:9px 14px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;transition:border-color 0.2s">
     </div>
@@ -583,7 +589,14 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
 
 <!-- COMPRAS -->
 <div class="tab" id="tab-compras">
+  <!-- SUB-TABS COMPRAS -->
+  <div style="display:flex;gap:4px;margin-bottom:20px;background:var(--gris-card);border:1px solid var(--gris-borde);border-radius:10px;padding:4px">
+    <button class="sub-tab active" id="subComprobantes" onclick="irSubCompras('comprobantes',this)">🧾 Comprobantes</button>
+    <button class="sub-tab" id="subGastos" onclick="irSubCompras('gastos',this)">📋 Gastos</button>
+  </div>
 
+  <!-- SUB: COMPROBANTES -->
+  <div id="subComprobantesPanel">
   <!-- STATS -->
   <div class="stats" id="statsCompras"></div>
 
@@ -627,9 +640,28 @@ main{padding:24px;max-width:1300px;margin:0 auto;}
         <div><span style="font-size:11px;color:var(--gris-texto);font-family:'DM Mono',monospace">IVA TOTAL: </span><span class="mono c-amarillo" id="totalIvaCompras" style="font-size:14px;font-weight:600"></span></div>
         <div><span style="font-size:11px;color:var(--gris-texto);font-family:'DM Mono',monospace">TOTAL: </span><span class="mono c-rojo" id="totalCompras" style="font-size:15px;font-weight:700"></span></div>
       </div>
-    </div>
+   </div><!-- /subComprobantesPanel -->
 
+  <!-- SUB: GASTOS -->
+  <div id="subGastosPanel" style="display:none">
+  <div class="mes-bar">
+    <select id="selGastos" onchange="pintarGastos()"></select>
+    <button class="btn btn-sm" onclick="abrirGasto()">+ Agregar gasto</button>
   </div>
+  <div class="card">
+    <div class="card-title">Gastos del mes</div>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>Fecha</th><th>Descripción</th><th>Monto</th><th></th></tr></thead>
+        <tbody id="bodyGastos"></tbody>
+      </table>
+    </div>
+    <div style="text-align:right;margin-top:10px">
+      <span style="font-size:11px;color:var(--gris-texto);font-family:'DM Mono',monospace">TOTAL: </span>
+      <span class="mono c-rojo" id="totalGastos" style="font-size:15px;font-weight:600"></span>
+    </div>
+  </div>
+  </div><!-- /subGastosPanel -->
 
   <!-- PROVEEDORES -->
   <div class="card" style="margin-top:20px">
@@ -929,14 +961,11 @@ const TABS_DISPONIBLES=[
   {id:'hoy',label:'📅 Hoy'},
   {id:'turnos',label:'⚽ Turnos'},
   {id:'caja',label:'💰 Caja'},
-  {id:'gastos',label:'📋 Gastos'},
-  {id:'compras',label:'🧾 Compras'},
-  {id:'socios',label:'👥 Socios'},
-  {id:'resumen',label:'📊 Resumen'},
   {id:'clientes',label:'📱 Clientes'},
   {id:'reservas',label:'🔔 Reservas'},
   {id:'buffet',label:'🍔 Buffet'},
   {id:'inventario',label:'📦 Inventario'},
+  {id:'compras',label:'🧾 Compras'},
   {id:'web',label:'🌐 Web'},
   {id:'config',label:'⚙️ Config'}
 ];
@@ -983,7 +1012,7 @@ function toast(msg,tipo){var el=document.getElementById('toast');el.textContent=
 function abrir(id){document.getElementById(id).classList.add('open');}
 function cerrar(id){document.getElementById(id).classList.remove('open');}
 window.cerrar=cerrar;
-document.addEventListener('click',function(e){if(e.target.classList.contains('overlay'))e.target.classList.remove('open');});
+// Modales NO se cierran al hacer click fuera — solo con botones Cancelar/Guardar
 document.addEventListener('keydown',function(e){
   if(e.key==='Escape')document.querySelectorAll('.overlay.open').forEach(function(o){o.classList.remove('open');});
   if(e.key==='Enter'&&document.getElementById('loginScreen').classList.contains('show'))hacerLogin();
@@ -1019,10 +1048,23 @@ window.irA=function(tab,btn){
     });
     if(document.getElementById('tab-reservas').classList.contains('active')) _renderReservas();
   });
-  if(tab==='caja')    pintarCaja();
-  if(tab==='gastos')   pintarGastos();
-  if(tab==='compras')  { pintarCompras(); pintarProveedores(); }
-  if(tab==='socios')  pintarSocios();
+  if(tab==='caja'){
+    // Show caja sub-tab by default
+    ['Caja','Resumen','Socios'].forEach(function(s){
+      var p=document.getElementById('sub'+s+'Panel'); if(p) p.style.display=s==='Caja'?'block':'none';
+      var b=document.getElementById('sub'+s); if(b) b.classList.toggle('active',s==='Caja');
+    });
+    pintarCaja();
+  }
+  // gastos now in compras sub-tab
+  if(tab==='compras'){
+    ['Comprobantes','Gastos'].forEach(function(s){
+      var p=document.getElementById('sub'+s+'Panel'); if(p) p.style.display=s==='Comprobantes'?'block':'none';
+      var b=document.getElementById('sub'+s); if(b) b.classList.toggle('active',s==='Comprobantes');
+    });
+    pintarCompras(); pintarProveedores();
+  }
+  // socios now in caja sub-tab
   if(tab==='resumen'){
     var diaEl=document.getElementById('selResumenDia');
     if(diaEl&&!diaEl.value) diaEl.value=hoy();
@@ -1467,7 +1509,7 @@ function pintarCaja(){
     +'</tr>');
   document.getElementById('bodyCaja').innerHTML=rows.join('');
 }
-window.borrarCaja=async function(id,mk){try{await deleteDoc(doc(db,'caja',id));D.caja[mk]=(D.caja[mk]||[]).filter(function(d){return d.id!==id;});setSynced(true);toast('Eliminado');pintarCaja();}catch(e){toast('Error: '+e.message,'err');setSynced(false);}};
+window.borrarCaja=async function(id,mk){if(!confirm('¿Eliminar este registro de caja?')) return;try{await deleteDoc(doc(db,'caja',id));D.caja[mk]=(D.caja[mk]||[]).filter(function(d){return d.id!==id;});setSynced(true);toast('Eliminado');pintarCaja();}catch(e){toast('Error: '+e.message,'err');setSynced(false);}};
 
 // ── CIERRE DÍA ────────────────────────────────
 window.abrirCierreDia=function(){
@@ -1575,7 +1617,7 @@ function pintarGastos(){
   if(!datos.length){document.getElementById('bodyGastos').innerHTML='<tr><td colspan="4"><div class="empty"><div class="empty-icon">📋</div>Sin gastos</div></td></tr>';return;}
   document.getElementById('bodyGastos').innerHTML=datos.map(function(d){return '<tr><td class="mono">'+fmtF(d.fecha)+'</td><td>'+d.desc+'</td><td class="mono c-rojo">'+fmt(d.monto)+'</td><td><button class="btn btn-danger btn-sm" onclick="borrarGasto(\''+d.id+'\',\''+mk+'\')">× Borrar</button></td></tr>';}).join('');
 }
-window.borrarGasto=async function(id,mk){try{await deleteDoc(doc(db,'gastos',id));D.gastos[mk]=(D.gastos[mk]||[]).filter(function(d){return d.id!==id;});setSynced(true);toast('Eliminado');pintarGastos();}catch(e){toast('Error: '+e.message,'err');setSynced(false);}};
+window.borrarGasto=async function(id,mk){if(!confirm('¿Eliminar este gasto?')) return;try{await deleteDoc(doc(db,'gastos',id));D.gastos[mk]=(D.gastos[mk]||[]).filter(function(d){return d.id!==id;});setSynced(true);toast('Eliminado');pintarGastos();}catch(e){toast('Error: '+e.message,'err');setSynced(false);}};
 
 // ── SOCIOS ────────────────────────────────────
 window.abrirRetiro=function(){
@@ -1814,6 +1856,7 @@ window.guardarEdicionCliente=async function(){
 window.borrarCliente=async function(id){
   if(!D.clientes||!D.clientes[id])return;
   var nombre=D.clientes[id].nombre;
+  if(!confirm('¿Eliminar cliente "'+nombre+'"? Esta acción no se puede deshacer.')) return;
   delete D.clientes[id];
   try{await setDoc(doc(db,'config','clientes'),{data:D.clientes});setSynced(true);toast('Cliente "'+nombre+'" eliminado');pintarClientes();}catch(e){toast('Error: '+e.message,'err');setSynced(false);}
 };
@@ -2838,6 +2881,7 @@ window.guardarProducto=async function(){
 window.borrarProducto=async function(id){
   if(!D.productos||!D.productos[id])return;
   var nombre=D.productos[id].nombre;
+  if(!confirm('¿Eliminar producto "'+nombre+'"?')) return;
   delete D.productos[id];
   try{
     await setDoc(doc(db,'config','productos'),{data:D.productos});
@@ -3615,6 +3659,7 @@ function pintarProveedores(){
 window.borrarProveedor=async function(id){
   if(!D.proveedores||!D.proveedores[id]) return;
   var nombre=D.proveedores[id].razonSocial;
+  if(!confirm('¿Eliminar proveedor "'+nombre+'"?')) return;
   delete D.proveedores[id];
   try{
     await setDoc(doc(db,'config','proveedores'),{data:D.proveedores});
@@ -4216,6 +4261,66 @@ window.editarFijo=function(dia,hora,ds){
   setTimeout(function(){ document.getElementById('inNombre').focus(); document.getElementById('inNombre').select(); },80);
 };
 
+
+// ── SUB-TABS ──────────────────────────────────
+function irSubCaja(sub, btn){
+  ['caja','resumen','socios'].forEach(function(s){
+    var panel=document.getElementById('sub'+s.charAt(0).toUpperCase()+s.slice(1)+'Panel');
+    var b=document.getElementById('sub'+s.charAt(0).toUpperCase()+s.slice(1));
+    if(panel) panel.style.display=s===sub?'block':'none';
+    if(b) b.classList.toggle('active',s===sub);
+  });
+  if(sub==='caja')    pintarCaja();
+  if(sub==='resumen') { var d=document.getElementById('selResumenDia'); if(d&&!d.value) d.value=hoy(); pintarResumen(); }
+  if(sub==='socios')  pintarSocios();
+}
+window.irSubCaja=irSubCaja;
+
+function irSubCompras(sub, btn){
+  ['comprobantes','gastos'].forEach(function(s){
+    var panel=document.getElementById('sub'+s.charAt(0).toUpperCase()+s.slice(1)+'Panel');
+    var b=document.getElementById('sub'+s.charAt(0).toUpperCase()+s.slice(1));
+    if(panel) panel.style.display=s===sub?'block':'none';
+    if(b) b.classList.toggle('active',s===sub);
+  });
+  if(sub==='comprobantes') pintarCompras();
+  if(sub==='gastos')       pintarGastos();
+}
+window.irSubCompras=irSubCompras;
+
+
+// ── NUEVO CLIENTE ─────────────────────────────
+window.abrirNuevoCliente=function(){
+  document.getElementById('ncNombre').value='';
+  document.getElementById('ncTelefono').value='';
+  document.getElementById('ncNotas').value='';
+  abrir('ovNuevoCliente');
+  setTimeout(function(){ document.getElementById('ncNombre').focus(); },80);
+};
+
+window.guardarNuevoCliente=async function(){
+  var nombre=document.getElementById('ncNombre').value.trim();
+  if(!nombre){ toast('Ingresá el nombre','err'); return; }
+  var tel=document.getElementById('ncTelefono').value.trim();
+  var notas=document.getElementById('ncNotas').value.trim();
+  if(!D.clientes) D.clientes={};
+  var maxId=Object.values(D.clientes).reduce(function(m,c){
+    return Math.max(m,parseInt((c.clienteId||'CLI-000').split('-')[1])||0);
+  },0);
+  var clienteId='CLI-'+String(maxId+1).padStart(3,'0');
+  var id='cli_manual_'+Date.now();
+  D.clientes[id]={nombre,telefono:tel,notas,clienteId,cancha:null,diaSem:null,hora:null};
+  setBusy('btnGuardarNuevoCliente',true);
+  try{
+    await setDoc(doc(db,'config','clientes'),{data:D.clientes});
+    cerrar('ovNuevoCliente');
+    setSynced(true);
+    toast('Cliente '+nombre+' creado — ID: '+clienteId+' ✓');
+    pintarClientes();
+  }catch(e){ toast('Error: '+e.message,'err'); setSynced(false); }
+  setBusy('btnGuardarNuevoCliente',false);
+};
+
 // ── SELECTS MES ───────────────────────────────
 function sincSelects(){
   var keys={};keys[mkHoy()]=1;
@@ -4666,5 +4771,22 @@ document.addEventListener('DOMContentLoaded',function(){
 
 <!-- BOTON FLOTANTE -->
 <button id="btnAsistente" onclick="toggleAsistente()" style="position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:var(--verde);border:none;color:var(--negro);font-size:24px;cursor:pointer;z-index:5001;box-shadow:0 4px 16px rgba(0,230,118,0.4);transition:all 0.2s;display:flex;align-items:center;justify-content:center" title="Asistente de voz">🎤</button>
+
+<!-- MODAL NUEVO CLIENTE -->
+<div class="overlay" id="ovNuevoCliente">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-title">👤 Nuevo cliente</div>
+    <div class="form-group"><label>Nombre completo</label><input type="text" id="ncNombre" placeholder="Ej: Juan Pérez"></div>
+    <div class="form-group"><label>Teléfono / WhatsApp</label><input type="tel" id="ncTelefono" placeholder="Ej: 2614123456"></div>
+    <div class="form-group"><label>Notas (opcional)</label><input type="text" id="ncNotas" placeholder="Ej: Juega los sábados"></div>
+    <div style="background:var(--gris-fondo);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--gris-texto);margin-bottom:4px">
+      El ID se asigna automáticamente. Para vincular a un turno fijo, usá la búsqueda al crear el turno.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="cerrar('ovNuevoCliente')">Cancelar</button>
+      <button class="btn btn-sm" id="btnGuardarNuevoCliente" onclick="guardarNuevoCliente()">Crear cliente</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
