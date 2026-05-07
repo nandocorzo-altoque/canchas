@@ -1145,8 +1145,25 @@ window.cerrarSesion=function(){
 };
 
 // ── SEMANA ────────────────────────────────────
-function inicioSemana(off){var d=new Date();d.setHours(0,0,0,0);var dow=d.getDay();d.setDate(d.getDate()+(dow===0?-6:1-dow)+off*7);return d;}
-function diasSemana(off){var ini=inicioSemana(off);return Array.from({length:7},function(_,i){var d=new Date(ini);d.setDate(ini.getDate()+i);return d.toISOString().split('T')[0];});}
+function inicioSemana(off){
+  // Use Argentina timezone (UTC-3) to avoid day-shift bugs
+  var ahora=new Date();
+  var local=new Date(ahora.getTime()-ahora.getTimezoneOffset()*60000);
+  var hoyStr=local.toISOString().split('T')[0];
+  var d=new Date(hoyStr+'T12:00:00');
+  var dow=d.getDay(); // 0=Dom,1=Lun...6=Sab
+  var diasDesdeL=dow===0?6:dow-1; // dias desde el lunes
+  d.setDate(d.getDate()-diasDesdeL+off*7);
+  return d;
+}
+function diasSemana(off){
+  var ini=inicioSemana(off);
+  return Array.from({length:7},function(_,i){
+    var d=new Date(ini.getFullYear(),ini.getMonth(),ini.getDate()+i,12,0,0);
+    var local=new Date(d.getTime()-d.getTimezoneOffset()*60000);
+    return local.toISOString().split('T')[0];
+  });
+}
 window.moverSemana=function(dir){D.semana+=dir;pintarGrilla();};
 window.cambiarCancha=function(n,btn){D.cancha=n;document.querySelectorAll('.cancha-tab').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');pintarGrilla();};
 
